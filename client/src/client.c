@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
     noecho();
     keypad(stdscr, TRUE);  // 获取方向键等，注意 getch 的返回值是 int
     curs_set(0);
+    start_color();  // Allow us to modify color
 
     scene_welcome();
     //scene_login();
