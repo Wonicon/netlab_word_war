@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+extern void scene_welcome(void);
 extern void scene_login(void);
 extern void scene_hall(void);
 
@@ -31,8 +32,9 @@ int main(int argc, char *argv[])
     keypad(stdscr, TRUE);  // 获取方向键等，注意 getch 的返回值是 int
     curs_set(0);
 
-    scene_login();
-    scene_hall();
+    scene_welcome();
+    //scene_login();
+    //scene_hall();
 
     endwin();
 
