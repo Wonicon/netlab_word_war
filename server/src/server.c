@@ -21,6 +21,7 @@ static int init_server(uint16_t port_no);
  * 用于测试连接线程
  */
 static void *echo(void *arg);
+int init_table(); 
 
 /**
  * @brief 服务器程序入口
@@ -59,6 +60,8 @@ int main(int argc, char *argv[])
  *
  * 创建套接字，绑定本机默认 IP 地址与给定端口号。
  * 如果发生错误会直接结束程序。
+ * 
+ * TO do: 创建一个表，初始为空，记录当前玩家状态
  */
 static int init_server(uint16_t port_no)
 {
@@ -79,6 +82,7 @@ static int init_server(uint16_t port_no)
         exit(-1);
     }
 
+	init_table();
     listen(socket_fd, 5);
 
     return socket_fd;

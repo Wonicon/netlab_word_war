@@ -25,7 +25,7 @@ $(CLIENT).bin: $(CLIENT_OBJ) $(LIB_OBJ)
 	@echo +ld $^
 
 $(SERVER).bin: $(SERVER_OBJ) $(LIB_OBJ)
-	@$(CC) $^ -lpthread -o $@
+	@$(CC) $^ -lpthread -lsqlite3 -o $@
 	@echo +ld $^
 
 $(TEMP)/%.o: %.c
