@@ -7,17 +7,35 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ncurses.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+extern void scene_login(void);
+extern void scene_hall(void);
+
 /**
  * @brief  客户端程序主体
  *
- * 负责创建连接，并执行交互循环。
+ * 负责初始化 curse 环境，创建连接，并执行交互循环。
  */
 int main(int argc, char *argv[])
 {
+    /*
+     * 初始化 curse 环境
+     */
+    initscr();
+    raw();
+    noecho();
+    keypad(stdscr, TRUE);  // 获取方向键等，注意 getch 的返回值是 int
+    curs_set(0);
+
+    scene_login();
+    scene_hall();
+
+    endwin();
+
     if ((argc != 3) || (argc > 1 && !strcmp(argv[1], "help"))) {
         int indent;
         printf("Usage: %n%s <server-ip> <server-port>  # connects to custom server\n", &indent, argv[0]);
