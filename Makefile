@@ -21,7 +21,7 @@ SERVER_OBJ := $(SERVER_SRC:%.c=$(TEMP)/%.o)
 SERVER_DEP := $(SERVER_SRC:%.c=$(TEMP)/%.d)
 
 $(CLIENT).bin: $(CLIENT_OBJ) $(LIB_OBJ)
-	@$(CC) $^ -o $@
+	@$(CC) $^ -lncurses -o $@
 	@echo +ld $^
 
 $(SERVER).bin: $(SERVER_OBJ) $(LIB_OBJ)
