@@ -11,7 +11,11 @@
 #include <pthread.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <string.h>
+#include "proxy.h"
 
+void handle_register(char *userID,char *passwd,int fd);
+extern int insert_table(char *UserId,char *passed);
 /*
  * 初始化服务器，获得监听套接字
  */
@@ -103,7 +107,13 @@ static void *echo(void *arg)
 
     // 接收到 FIN 会退出
     while (read(fd, buf, sizeof(buf))) {
-        printf("%s", buf);
+       struct client* q = (struct client*)buf;
+	  if(q->type == REGISTER)  //注册报文
+		  handle_register(q->single.userID,q->single.passwd,fd);
+	  else if(q->type == LOGIN) //登录报文
+		  ;//handle_login;
+	  else if(q->type == LOGOUT) //退出报文
+		  ;
     }
 
     close(fd);
@@ -111,4 +121,19 @@ static void *echo(void *arg)
     printf("Close connection on %d\n", fd);
 
     return arg;
+}
+
+void handle_register(char *userID, char *passwd,int fd) {
+	struct server ack;
+	if(insert_table(userID,passwd) == 0)
+		ack.type = REGISTER_ACK;
+	else 
+		ack.type = ID_CONFICT;
+
+	ack.single.num = 1;
+	memset(ack.single.data,0,200);
+	strcat(ack.single.data,userID);
+	strcat(ack.single.data,passwd);
+
+	send(fd,&ack,sizeof(struct server),0);
 }

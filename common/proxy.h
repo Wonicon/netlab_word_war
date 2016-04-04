@@ -26,7 +26,8 @@ struct ClientSingle {
 #define REGISTER_ACK 0x01
 #define ID_CONFICT 0x02  //用户ID冲突
 #define LOGIN_ACK 0x03
-#define LOGOUT_ACK 0x04
+#define LOGIN_ERROR 0x04 //用户ID和密码不匹配
+#define LOGOUT_ACK 0x05
 
 /*#pragma(1)
 struct ServerSingle {
@@ -47,6 +48,11 @@ struct ServerSingle {
 #define STONE 0x01     //石头
 #define SCISSOR 0x02   //剪刀
 #define PAPER 0x03     //布
+
+//用户状态
+#define ONLINE 0x01    //在线
+#define OFFLINE 0x02   //离线
+#define PLAY 0x03      //正在对战
 
 /*#pragma(1)
 struct ClientBattle {
@@ -70,7 +76,7 @@ struct ServerBattle {
 #pragma()*/
 
 //合并了两种类型的报文，具体的报文类型由type字段决定，服务器端类似
-#pragma(1)
+#pragma pack(1)
 struct client {
 	uint8_t type;
 	union {
@@ -85,9 +91,9 @@ struct client {
 		} battle;
 	};
 };
-#pragma()
+#pragma pack()
 
-#pragma(1)
+#pragma pack(1)
 struct server {
 	uint8_t type;
 	union {
@@ -105,4 +111,5 @@ struct server {
 		} battle;
 	};
 };
-#pragma()
+#pragma pack()
+#endif

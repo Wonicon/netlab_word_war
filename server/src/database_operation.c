@@ -5,6 +5,13 @@
 
 #define TABLE_NAME "player.db"
 
+//注册时调用，检查是否有ID相同的用户
+static int register_callback(void *num,int argc, char **argv, char **azColName) {
+	//num = (int *)num;
+	*((int *)num) = (argc == 0) ? 1 : 0;
+	return 0;
+}
+
 static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
 	int i;
 	for(i = 0; i < argc; i++) 
@@ -68,16 +75,35 @@ int insert_table(char *UserID,char *passwd) {
 	sql = strcat("SELECT FROM PLAYER WHERE UserID GLOB \'",UserID);
 	sql = strcat(sql,"\'");
 	
-	rc = sqlite3_exec(db,sql,callback,0,&zErrMsg);
+	int num;
+	rc = sqlite3_exec(db,sql,register_callback,&num,&zErrMsg);
 	if(rc != SQLITE_OK) {
 		fprintf(stderr,"SQL error: %s\n",zErrMsg);
 		sqlite3_free(zErrMsg);
 	} else 
 		fprintf(stdout, "Check operation done successfully\n");
 
-	/* No same UserID*/
+	//没有相同的ID
+	if(num == 1) {
+		sql = strcat("INSERT INTO PLAYER (ID,PASSWD,STATUS) VALUES (\'",UserID);
+		sql = strcat(sql,"\',\'");
+		sql = strcat(sql,passwd);
+		sql = strcat(sql,"\',");
+		sql = strcat(sql,"0);");
 
-	return 0;
+		rc = sqlite3_exec(db,sql,callback,0,&zErrMsg);
+		if(rc != SQLITE_OK) {
+			fprintf(stderr,"SQL error: %s\n",zErrMsg);
+			sqlite3_free(zErrMsg);
+			return -1;
+		} else {
+			fprintf(stdout,"Insert done successfully\n");
+			return 0;
+		}
+
+	}
+	else         //有相同的ID
+		return -1;
 }
 
 /* 当用户退出或进入游戏时，修改用户状态 */
