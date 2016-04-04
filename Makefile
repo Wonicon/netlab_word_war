@@ -28,9 +28,14 @@ $(SERVER).bin: $(SERVER_OBJ) $(LIB_OBJ)
 	@$(CC) $^ -lpthread -lsqlite3 -o $@
 	@echo +ld $^
 
-$(TEMP)/%.o: %.c
+$(TEMP)/$(CLIENT)/%.o: $(CLIENT)/%.c
 	@mkdir -p $(TEMP)/$(dir $<)
-	@$(CC) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) -I $(CLIENT)/include -c $< -o $@
+	@echo +cc $<
+
+$(TEMP)/$(SERVER)/%.o: $(SERVER)/%.c
+	@mkdir -p $(TEMP)/$(dir $<)
+	@$(CC) $(CFLAGS) -I $(SERVER)/include -c $< -o $@
 	@echo +cc $<
 
 -include $(CLIENT_DEP)
