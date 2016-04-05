@@ -13,7 +13,6 @@
 #include <arpa/inet.h>
 
 extern void scene_welcome(void);
-extern void scene_login(void);
 extern void scene_hall(void);
 
 /**
@@ -34,8 +33,8 @@ int main(int argc, char *argv[])
     start_color();  // Allow us to modify color
 
     scene_welcome();
-    //scene_login();
-    //scene_hall();
+
+    scene_hall();
 
     endwin();
 
