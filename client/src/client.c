@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 
     scene_hall();
 
+    echo();
     endwin();
-
     close(client_socket);
 }
