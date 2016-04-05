@@ -38,6 +38,19 @@ int send_login_msg(char username[], char password[])
 }
 
 /**
+ * @brief 登出请求
+ */
+void send_logout_msg(void)
+{
+    // Construct logout request
+    Request request = { .type = LOGOUT };
+    strcpy(request.account.userID, userID);
+
+    // Send logout request
+    write(client_state, &request, sizeof(request));
+}
+
+/**
  * @brief 发送注册请求，等待服务器响应
  * @param username 用户名，限长 9 个字符
  * @param passowrd 密码，限长 9 个字符
