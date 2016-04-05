@@ -1,4 +1,3 @@
-#include <string.h>
 #include <ncurses.h>
 
 extern void scene_login(void);

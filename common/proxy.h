@@ -20,6 +20,7 @@
 #define ID_CONFLICT 0x02  //用户ID冲突
 #define LOGIN_ACK 0x03
 #define LOGOUT_ACK 0x04
+#define LIST_UPDATE 0x05  //更新列表
 
 //对战报文类型
 #define ASK_BATTLE 0x10   //发起对战请求
@@ -67,8 +68,21 @@ typedef struct {
 			uint8_t srcHP;
 			uint8_t dstHP;
 		} battle;
+        // 列表更新报文，nr_entry 指示之后要接收多少个 PlayerEntry 结构体
+        struct {
+            int nr_entry;
+        } list;
 	};
 } Response;
+#pragma pack()
+
+#pragma pack(1)
+typedef struct {
+	char userID[10];  // 用户名
+	int rank;         // 排名
+	int state;        // 状态（对战/空闲）
+    int is_friend;    // 与当前请求的玩家是否是好友
+} PlayerEntry;
 #pragma pack()
 
 #endif
