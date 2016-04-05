@@ -22,9 +22,13 @@
 #define REGISTER_ACK 0x01
 #define ID_CONFLICT 0x02  //用户ID冲突
 #define LOGIN_ACK 0x03
-#define LOGOUT_ACK 0x04
-#define LIST_INIT 0x05    //创建列表
-#define LIST_UPDATE 0x06  //更新列表
+#define LOGIN_ERROR 0x04 //用户ID和密码不匹配
+#define LOGOUT_ACK 0x05
+#define LOGIN_ANNOUNCE 0x06 //通知其他用户有用户上线
+#define LOGOUT_ANNOUNCE 0x07 //通知其他用户有用户下线
+#define BATTLE_ANNOUNCE 0x08 //通知其他用户有用户进入游戏状态
+
+#define LIST_UPDATE 0x05  //更新列表
 
 //对战报文类型
 #define ASK_BATTLE 0x10   //发起对战请求
@@ -38,11 +42,16 @@
 #define SCISSOR 0x02   //剪刀
 #define PAPER 0x03     //布
 
+//用户状态
+#define ONLINE 0x01    //在线
+#define OFFLINE 0x02   //离线
+#define PLAY 0x03      //正在对战
+
 //合并了两种类型的报文，具体的报文类型由type字段决定，服务器端类似
 #pragma pack(1)
 typedef struct {
 	uint8_t type;
-	union {
+	union { 
 		struct {
 			char userID[10];
 			char passwd[10];
