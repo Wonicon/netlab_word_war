@@ -17,7 +17,6 @@ void *thread(void *arg)
 /**
  * @brief 游戏大厅界面，显示在线玩家名单，排名，通知，提供选择交互功能
  */
-int W, H;
 void scene_hall(void)
 {
     erase();
