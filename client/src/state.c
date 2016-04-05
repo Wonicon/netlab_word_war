@@ -29,6 +29,11 @@ int client_socket = -1;
 ClientState client_state;
 
 /**
+ * @brief 当前选择的玩家，被 mutex_list 保护
+ */
+int selected = 0;
+
+/**
  * @brief 屏幕刷新的互斥锁
  */
 pthread_mutex_t mutex_refresh = PTHREAD_MUTEX_INITIALIZER;

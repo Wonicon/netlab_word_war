@@ -64,6 +64,18 @@ void *user_input(void *arg)
         if (cmd == 'q') {
             client_state = QUIT;
         }
+
+        switch (client_state) {
+            case IDLE:
+                pthread_mutex_lock(&mutex_list);
+                if (cmd == KEY_UP && selected > 0) selected--;
+                else if (cmd == KEY_DOWN && selected < nr_players - 1) selected++;
+                pthread_mutex_unlock(&mutex_list);
+                break;
+            case WAIT_LOCAL_CONFIRM: break;
+            case WAIT_REMOTE_CONFIRM: break;
+            default: ;
+        }
     }
     return NULL;
 }
@@ -81,7 +93,9 @@ void *update_screen(void *arg)
         pthread_mutex_lock(&mutex_list);
         if (player_list) {
             for (int i = 0; i < nr_players; i++) {
-                mvwprintw(wind, i, 0, "%s", player_list[i].userID);  // 这货也不是线程安全的！
+                // TODO 用颜色高亮
+                mvwprintw(wind, i, 0, "[%c] %s", (selected == i ? '*' : ' '), player_list[i].userID);
+                // 这货也不是线程安全的！
             }
         }
         wrefresh(wind);
@@ -109,6 +123,10 @@ void *thread(void *arg)
  */
 void scene_hall(void)
 {
+    init_pair(1, COLOR_WHITE, COLOR_BLUE);
+
+    client_state = IDLE;
+
     erase();
 
     getmaxyx(stdscr, H, W);
