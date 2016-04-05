@@ -25,6 +25,9 @@
 #define LOGOUT_ANNOUNCE 0x07 //通知其他用户有用户下线
 #define BATTLE_ANNOUNCE 0x08 //通知其他用户有用户进入游戏状态
 
+//#define LOGOUT_ACK 0x04
+#define LIST_UPDATE 0x05  //更新列表
+
 //对战报文类型
 #define ASK_BATTLE 0x10   //发起对战请求
 #define YES_BATTLE 0x20   //接受对战
@@ -41,27 +44,6 @@
 #define ONLINE 0x01    //在线
 #define OFFLINE 0x02   //离线
 #define PLAY 0x03      //正在对战
-
-/*#pragma(1)
-struct ClientBattle {
-	uint8_t type;    //报文类型
-	char srcID[10];  //发起对战请求的用户ID
-	char dstID[10];  //被邀对战的用户ID
-	uint8_t attack;  //发出招数
-};
-#pragma()
-
-#pragma(1)
-struct ServerBattle {
-	uint8_t type;   //报文类型
-	char srcID[10]; //双方ID
-	char dstID[10];
-	uint8_t src_attack;  //双方出招
-	uint8_t dst_attack;
-	uint8_t srcHP;  //双方血量
-	uint8_t dstHP;
-};
-#pragma()*/
 
 //合并了两种类型的报文，具体的报文类型由type字段决定，服务器端类似
 #pragma pack(1)
@@ -97,7 +79,21 @@ typedef struct {
 			uint8_t srcHP;
 			uint8_t dstHP;
 		} battle;
+        // 列表更新报文，nr_entry 指示之后要接收多少个 PlayerEntry 结构体
+        struct {
+            int nr_entry;
+        } list;
 	};
 } Response;
 #pragma pack()
+
+#pragma pack(1)
+typedef struct {
+	char userID[10];  // 用户名
+	int rank;         // 排名
+	int state;        // 状态（对战/空闲）
+    int is_friend;    // 与当前请求的玩家是否是好友
+} PlayerEntry;
+#pragma pack()
+
 #endif

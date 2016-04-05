@@ -64,6 +64,7 @@ int init_table () {
 		fprintf(stdout,"Opened database successfully in init_table!\n");
 
 	/* Create SQL statement */
+    /* TODO 在已有数据库的情况下重复创建 table 会报错 */
 	sql = "CREATE TABLE PLAYER(" \
 		   "ID CHAR(20) NOT NULL," \
 		   "PASSWD CHAR(20) NOT NULL," \
