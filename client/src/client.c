@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "state.h"
 
 extern void scene_welcome(void);
 extern void scene_hall(void);
@@ -22,8 +23,34 @@ extern void scene_hall(void);
  */
 int main(int argc, char *argv[])
 {
+    if ((argc != 3) || (argc > 1 && !strcmp(argv[1], "help"))) {
+        int indent;
+        printf("Usage: %n%s <server-ip> <server-port>  # connects to custom server\n", &indent, argv[0]);
+        printf(      "%*s%s help                       # show this message\n", indent, "", argv[0]);
+        return 0;
+    }
+
+    struct sockaddr_in addr = {
+        .sin_family      = AF_INET,
+        .sin_addr.s_addr = inet_addr(argv[1]),
+        .sin_port        = htons((uint16_t)atoi(argv[2])),
+    };
+
+    client_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (client_socket == -1) {
+        perror(NULL);
+        exit(-1);
+    }
+
+    if (connect(client_socket, (struct sockaddr *)&addr, sizeof(addr))) {
+        perror(NULL);
+        exit(-1);
+    }
+
     /*
      * 初始化 curse 环境
+     * 在建立连接之后做，不然中途因错误退出会导致终端混乱
      */
     initscr();
     raw();
@@ -38,36 +65,5 @@ int main(int argc, char *argv[])
 
     endwin();
 
-    if ((argc != 3) || (argc > 1 && !strcmp(argv[1], "help"))) {
-        int indent;
-        printf("Usage: %n%s <server-ip> <server-port>  # connects to custom server\n", &indent, argv[0]);
-        printf(      "%*s%s help                       # show this message\n", indent, "", argv[0]);
-        return 0;
-    }
-
-    struct sockaddr_in addr = {
-        .sin_family      = AF_INET,
-        .sin_addr.s_addr = inet_addr(argv[1]),
-        .sin_port        = htons((uint16_t)atoi(argv[2])),
-    };
-
-    int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (socket_fd == -1) {
-        perror(NULL);
-        exit(-1);
-    }
-
-    if (connect(socket_fd, (struct sockaddr *)&addr, sizeof(addr))) {
-        perror(NULL);
-        exit(-1);
-    }
-
-    // 简单的 echo 交互, EOF 退出
-    char buf[1024];
-    while (fgets(buf, sizeof(buf), stdin)) {
-        write(socket_fd, buf, strlen(buf) + 1);
-    }
-
-    close(socket_fd);
+    close(client_socket);
 }

@@ -103,7 +103,8 @@ static void *echo(void *arg)
 
     // 接收到 FIN 会退出
     while (read(fd, buf, sizeof(buf))) {
-        printf("%s", buf);
+        printf("%s\n", buf);
+        write(fd, "Hello", sizeof("Hello"));
     }
 
     close(fd);

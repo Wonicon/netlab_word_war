@@ -10,12 +10,18 @@
 /**
  * @brief 屏幕宽度
  */
-int W;
+int W = 0;
 
 /**
  * @brief 屏幕高度
  */
-int H;
+int H = 0;
+
+/**
+ * @brief 客户端连接套接字
+ */
+
+int client_socket = -1;
 
 /**
  * @brief 屏幕刷新的互斥锁
