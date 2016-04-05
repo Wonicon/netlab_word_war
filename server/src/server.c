@@ -122,16 +122,20 @@ static void *echo(void *arg)
     printf("Connected on %d\n", fd);
 
     // 接收到 FIN 会退出
+	Request* q = (Request *)buf;
     while (read(fd, buf, sizeof(buf))) {
-		Request* q = (Request *)buf;
+		//Request* q = (Request *)buf;
 		if(q->type == REGISTER)  //注册报文
 			handle_register(q->account.userID,q->account.passwd,fd);
 		else if(q->type == LOGIN) //登录报文
 			handle_login(q->account.userID,q->account.passwd,fd);
 		else if(q->type == LOGOUT) //退出报文
-			;
+			handle_logout(q->account.userID,fd);
+        //printf("%s\n", buf);
+        //write(fd, "Hello", sizeof("Hello"));
     }
 
+	handle_logout(q->account.userID,fd);
     close(fd);
 
     printf("Close connection on %d\n", fd);
@@ -144,7 +148,7 @@ void handle_register(char *userID, char *passwd,int fd) {
 	if(insert_table(userID,passwd) == 0)
 		ack.type = REGISTER_ACK;
 	else 
-		ack.type = ID_CONFICT;
+		ack.type = ID_CONFLICT;
 
 	ack.single.num = 1;
 	memset(ack.single.data,0,200);
@@ -159,12 +163,49 @@ void handle_register(char *userID, char *passwd,int fd) {
 void handle_login(char *userID, char *passwd, int fd) {
 	Response ack;
 	memset(ack.single.data,0,200);
-	if(check_table(userID,passwd,ack.single.data) == NULL) {
+
+	struct online_info q;
+	q.num = 0;
+	memset(q.data,0,200);
+
+	if(check_table(userID,passwd,&q) != NULL) {
+		//给该玩家发送登录确认的报文
 		ack.type = LOGIN_ACK;
+		ack.single.num = q.num;
+		strncpy(ack.single.data,q.data,200);
 		send(fd,&ack,sizeof(Response),0);
+
+		//通知其他在线玩家有玩家上线
+		Response announce;
+		announce.type = LOGIN_ANNOUNCE,
+		announce.single.num = 0x01;
+		strncpy(announce.single.data,userID,9);
+		strncpy(announce.single.data + 9,"1",1);
+
+		int i;
+		for(i = 0; i < MAX_NUM_SOCKET; i++)
+			if(sockfd[i] != -1 && sockfd[i] != fd)
+				send(sockfd[i],&announce,sizeof(Response),0);
 	}
 	else {
 		ack.type = LOGIN_ERROR;
 		send(fd,&ack,sizeof(Response),0);
+	}
+}
+
+void handle_logout(char *userID,int fd) {
+	Response ack;
+	memset(ack.single.data,0,200);
+
+	if(alter_table(userID,0) == 0) {
+		ack.type = LOGOUT_ANNOUNCE;
+		ack.single.num = 0x01;
+		strncpy(ack.single.data,userID,9);
+		strncpy(ack.single.data + 9,"0",1);
+		
+		int i;
+		for(i = 0; i < MAX_NUM_SOCKET; i++)
+			if(sockfd[i] != -1 && sockfd[i] != fd)
+				send(sockfd[i],&ack,sizeof(Response),0);
 	}
 }

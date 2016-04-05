@@ -4,8 +4,9 @@
  */
 
 #ifndef PROXY_H
-
 #define PROXY_H
+
+#include <inttypes.h>
 
 /* 单个用户与服务器交互（注册、登录、退出）*/
 
@@ -14,30 +15,17 @@
 #define LOGIN 0x02     //登录
 #define LOGOUT 0x03    //退出
 
-/*#pragma(1)
-struct ClientSingle {
-	uint8_t type;     //报文类型
-	char userID[10];  //用户ID
-	char passwd[10];  //用户密码
-};
-#pragma()*/
-
 //服务器报文类型
 #define REGISTER_ACK 0x01
-#define ID_CONFICT 0x02  //用户ID冲突
+#define ID_CONFLICT 0x02  //用户ID冲突
 #define LOGIN_ACK 0x03
 #define LOGIN_ERROR 0x04 //用户ID和密码不匹配
 #define LOGOUT_ACK 0x05
+#define LOGIN_ANNOUNCE 0x06 //通知其他用户有用户上线
+#define LOGOUT_ANNOUNCE 0x07 //通知其他用户有用户下线
+#define BATTLE_ANNOUNCE 0x08 //通知其他用户有用户进入游戏状态
 
-/*#pragma(1)
-struct ServerSingle {
-	uint8_t type;    //报文类型
-	uint8_t num;     //用户个数（注册，退出返回0x01;相应登录的报文时返回当前在线玩家的个数）
-	char data[200];  //依次是各个用户ID和用户状态，最多可以包含10个用户信息
-};
-#pragma()*/
-
-/* 对战报文 */
+//对战报文类型
 #define ASK_BATTLE 0x10   //发起对战请求
 #define YES_BATTLE 0x20   //接受对战
 #define NO_BATTLE 0x30    //拒绝对战

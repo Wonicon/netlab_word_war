@@ -1,7 +1,6 @@
 #include <ncurses.h>
 #include <pthread.h>
-
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+#include "state.h"
 
 void *thread(void *arg)
 {
@@ -9,9 +8,9 @@ void *thread(void *arg)
     int i = 0;
     while (1) {
         mvwprintw(wind, 0, 0, "hello %d", i++);
-        pthread_mutex_lock(&mutex);
+        pthread_mutex_lock(&mutex_refresh);
         wrefresh(wind);
-        pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutex_refresh);
     }
 }
 
