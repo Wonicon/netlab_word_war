@@ -26,6 +26,8 @@ void scene_welcome(void)
     int reg_y = login_y + 1;
     int reg_x = login_x;
 
+    init_pair(1, COLOR_WHITE, COLOR_BLUE);
+
     attron(A_BOLD);
 
     int selection = 0;  // 0 for login, 1 for register
@@ -39,9 +41,9 @@ void scene_welcome(void)
         
         // Draw login option
         if (selection == 0) {
-            attron(A_UNDERLINE);
+            attron(COLOR_PAIR(1));
             mvprintw(login_y, login_x, "%s", LOGIN);
-            attroff(A_UNDERLINE);
+            attroff(COLOR_PAIR(1));
         }
         else {
             mvprintw(login_y, login_x, "%s", LOGIN);
@@ -49,9 +51,9 @@ void scene_welcome(void)
  
         // Draw register option
         if (selection == 1) {
-            attron(A_UNDERLINE);
+            attron(COLOR_PAIR(1));
             mvprintw(reg_y, reg_x, "%s", REG);
-            attroff(A_UNDERLINE);
+            attroff(COLOR_PAIR(1));
         }
         else {
             mvprintw(reg_y, reg_x, "%s", REG);

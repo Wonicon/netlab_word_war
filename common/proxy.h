@@ -77,24 +77,24 @@ struct ServerBattle {
 
 //合并了两种类型的报文，具体的报文类型由type字段决定，服务器端类似
 #pragma pack(1)
-struct client {
+typedef struct {
 	uint8_t type;
-	union {
+	union { 
 		struct {
 			char userID[10];
 			char passwd[10];
-		} single;
+		} account;
 		struct {
 			char srcID[10];
 			char dstID[10];
 			uint8_t attack;
 		} battle;
 	};
-};
+} Request;
 #pragma pack()
 
 #pragma pack(1)
-struct server {
+typedef struct {
 	uint8_t type;
 	union {
 		struct {
@@ -110,6 +110,6 @@ struct server {
 			uint8_t dstHP;
 		} battle;
 	};
-};
+} Response;
 #pragma pack()
 #endif

@@ -1,5 +1,6 @@
 #include <ncurses.h>
 #include <string.h>
+#include "lib/message.h"
 
 /**
  * @brief 注册界面
@@ -20,37 +21,47 @@ void scene_register()
     int name_line = greeting_line + 2;
     int pw_line = name_line + 1;
 
-    // Username
-    mvprintw(name_line, left_pad, "username: %n", &indent_name);
-    move(name_line, left_pad + indent_name);
-    echo();
     char username[256];
-    getnstr(username, sizeof(username) - 1);
+    char password[256];
+    char confirm[256];
 
-    int is_confrom = 0;
+    // Username
+    while (1) {
+        mvprintw(name_line, left_pad, "username: %n", &indent_name);
+        move(name_line, left_pad + indent_name);
+        echo();
+        getnstr(username, sizeof(username) - 1);
 
-    while (!is_confrom) {
-        // Password
-        mvprintw(pw_line, left_pad, "password: %n", &indent_pw);
-        move(pw_line, left_pad + indent_pw);
-        noecho();
-        char password[256];
-        getnstr(password, sizeof(password) - 1);
+        while (1) {
+            // Password
+            mvprintw(pw_line, left_pad, "password: %n", &indent_pw);
+            move(pw_line, left_pad + indent_pw);
+            noecho();
+            getnstr(password, sizeof(password) - 1);
 
-        // Confirm password
-        mvprintw(pw_line + 1, left_pad, "confirm: %n", &indent_pw);
-        move(pw_line + 1, left_pad + indent_pw);
-        noecho();
-        char confirm[256];
-        getnstr(confirm, sizeof(confirm) - 1);
+            // Confirm password
+            mvprintw(pw_line + 1, left_pad, "confirm: %n", &indent_pw);
+            move(pw_line + 1, left_pad + indent_pw);
+            noecho();
+            getnstr(confirm, sizeof(confirm) - 1);
 
-        if (!strcmp(password, confirm)) {
-            is_confrom = 1;
+            if (!strcmp(password, confirm)) {
+                break;
+            }
+            else {
+                mvprintw(pw_line + 2, left_pad, "passwords are not the same!");
+            }
+        }
+
+        if (send_register_msg(username, password)) {
+            break;
         }
         else {
-            mvprintw(pw_line + 2, left_pad, "passwords are not the same!");
+            mvprintw(pw_line + 2, left_pad, "register failed");
+            // 清屏
+            mvprintw(name_line, left_pad + indent_name, "%*s", strlen(username), "");
         }
     }
-    
+
     curs_set(0);
 }

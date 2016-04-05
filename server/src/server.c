@@ -13,9 +13,8 @@
 #include <netinet/in.h>
 #include <string.h>
 #include "proxy.h"
+#include "func.h"
 
-void handle_register(char *userID,char *passwd,int fd);
-extern int insert_table(char *UserId,char *passed);
 /*
  * 初始化服务器，获得监听套接字
  */
@@ -26,6 +25,12 @@ static int init_server(uint16_t port_no);
  */
 static void *echo(void *arg);
 int init_table(); 
+
+/*
+ *全局数组，记录当前在线玩家的连接套接字
+ */
+#define MAX_NUM_SOCKET 10
+int sockfd[MAX_NUM_SOCKET];
 
 /**
  * @brief 服务器程序入口
@@ -46,12 +51,23 @@ int main(int argc, char *argv[])
     }
 
     int listen_sock = init_server((uint16_t)port_no);
+	int i;
+	for(i = 0; i < MAX_NUM_SOCKET; i++)
+		sockfd[i] = -1;
 
     for(;;) {
         pthread_t tid;
         socklen_t sock_len;
         struct sockaddr_in addr;
         int connect_sock = accept(listen_sock, (struct sockaddr *)&addr, &sock_len);
+
+		int i;
+		for(i = 0; i < MAX_NUM_SOCKET; i++)
+			if(sockfd[i] == -1) {
+				sockfd[i] = connect_sock;
+				break;
+			}
+
         pthread_create(&tid, NULL, echo, (void *)(long)connect_sock);
     }
 }
@@ -107,13 +123,13 @@ static void *echo(void *arg)
 
     // 接收到 FIN 会退出
     while (read(fd, buf, sizeof(buf))) {
-       struct client* q = (struct client*)buf;
-	  if(q->type == REGISTER)  //注册报文
-		  handle_register(q->single.userID,q->single.passwd,fd);
-	  else if(q->type == LOGIN) //登录报文
-		  ;//handle_login;
-	  else if(q->type == LOGOUT) //退出报文
-		  ;
+		Request* q = (Request *)buf;
+		if(q->type == REGISTER)  //注册报文
+			handle_register(q->account.userID,q->account.passwd,fd);
+		else if(q->type == LOGIN) //登录报文
+			handle_login(q->account.userID,q->account.passwd,fd);
+		else if(q->type == LOGOUT) //退出报文
+			;
     }
 
     close(fd);
@@ -124,7 +140,7 @@ static void *echo(void *arg)
 }
 
 void handle_register(char *userID, char *passwd,int fd) {
-	struct server ack;
+	Response ack;
 	if(insert_table(userID,passwd) == 0)
 		ack.type = REGISTER_ACK;
 	else 
@@ -132,8 +148,23 @@ void handle_register(char *userID, char *passwd,int fd) {
 
 	ack.single.num = 1;
 	memset(ack.single.data,0,200);
-	strcat(ack.single.data,userID);
-	strcat(ack.single.data,passwd);
+	sprintf(ack.single.data,"%s%s",userID,passwd);
+	//strncpy(ack.single.data,userID,);
+	//strcat(ack.single.data,userID);
+	//strcat(ack.single.data,passwd);
 
-	send(fd,&ack,sizeof(struct server),0);
+	send(fd,&ack,sizeof(Response),0);
+}
+
+void handle_login(char *userID, char *passwd, int fd) {
+	Response ack;
+	memset(ack.single.data,0,200);
+	if(check_table(userID,passwd,ack.single.data) == NULL) {
+		ack.type = LOGIN_ACK;
+		send(fd,&ack,sizeof(Response),0);
+	}
+	else {
+		ack.type = LOGIN_ERROR;
+		send(fd,&ack,sizeof(Response),0);
+	}
 }
