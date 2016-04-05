@@ -4,10 +4,9 @@
 #include <stdlib.h>
 #include "state.h"
 #include "proxy.h"
+#include "lib/message.h"
 
 pthread_mutex_t mutex_list = PTHREAD_MUTEX_INITIALIZER;
-
-#define MAKE_PTR(p, type) typeof(type) p = type
 
 PlayerEntry *player_list = NULL;
 
@@ -20,7 +19,7 @@ size_t nr_players = 0;
  */
 void handle_init_list(Response *msg)
 {
-    MAKE_PTR(p, &msg->list);
+    MAKE_PTR(p, msg->list);
 
     pthread_mutex_lock(&mutex_list);
 
@@ -49,6 +48,18 @@ void *push_service(void *arg)
         case LIST_UPDATE: handle_init_list(&msg); break;
         default: break;
         }
+
+        switch (client_state) {
+        case WAIT_REMOTE_CONFIRM:
+            if (msg.type == NO_BATTLE) {
+                client_state = IDLE;
+            }
+            else if (msg.type == YES_BATTLE) {
+                client_state = BATTLING;
+            }
+            break;
+        default: ;
+        }
     }
 
     return NULL;
@@ -67,13 +78,22 @@ void *user_input(void *arg)
 
         switch (client_state) {
             case IDLE:
+                // 涉及 nr_players 的使用，上锁
+                // TODO 能否认为这样上锁能在数据被更新之前，选定屏幕上确定的玩家？会不会出现以为选了 A 但是实际处理了 B 的情况？
                 pthread_mutex_lock(&mutex_list);
                 if (cmd == KEY_UP && selected > 0) selected--;
                 else if (cmd == KEY_DOWN && selected < nr_players - 1) selected++;
+                else if (cmd == '\n') {
+                    send_invitation_msg();
+                    client_state = WAIT_REMOTE_CONFIRM;
+                }
                 pthread_mutex_unlock(&mutex_list);
                 break;
             case WAIT_LOCAL_CONFIRM: break;
-            case WAIT_REMOTE_CONFIRM: break;
+            case BATTLING:
+                sleep(1);
+                client_state = IDLE;
+                break;
             default: ;
         }
     }
@@ -94,6 +114,7 @@ void *update_screen(void *arg)
         if (player_list) {
             for (int i = 0; i < nr_players; i++) {
                 // TODO 用颜色高亮
+                // TODO 并发粒度太大，选择卡顿
                 mvwprintw(wind, i, 0, "[%c] %s", (selected == i ? '*' : ' '), player_list[i].userID);
                 // 这货也不是线程安全的！
             }
@@ -111,7 +132,7 @@ void *thread(void *arg)
     int i = 0;
     while (client_state != QUIT) {
         pthread_mutex_lock(&mutex_refresh);
-        mvwprintw(wind, 0, 0, "hello %d", i++);  // 这货也不是线程安全的！
+        mvwprintw(wind, 0, 0, "%s %d", (client_state == BATTLING ? "BATTLE" : "IDLE"),i++);  // 这货也不是线程安全的！
         wrefresh(wind);
         pthread_mutex_unlock(&mutex_refresh);
     }
@@ -186,4 +207,5 @@ void scene_hall(void)
     }
 
     while (client_state != QUIT) ;
+    sleep(1);
 }

@@ -13,6 +13,7 @@ typedef enum {
     IDLE,
     WAIT_LOCAL_CONFIRM,
     WAIT_REMOTE_CONFIRM,
+    BATTLING,
     QUIT,
 } ClientState;
 
@@ -21,5 +22,7 @@ extern int selected;
 extern ClientState client_state;
 
 extern pthread_mutex_t mutex_refresh;  // 屏幕刷新的互斥锁
+
+extern char userID[10];
 
 #endif

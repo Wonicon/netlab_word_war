@@ -4,6 +4,7 @@
 
 #include <string.h>
 #include <unistd.h>
+#include <proxy.h>
 #include "proxy.h"
 #include "state.h"
 
@@ -64,3 +65,22 @@ int send_register_msg(char username[], char password[])
         return 1;
     }
 }
+
+/**
+ * @brief 发送对战请求
+ *
+ * 此函数处于用户列表上锁状态
+ */
+ void send_invitation_msg(void)
+ {
+     extern PlayerEntry *player_list;
+
+     // Construct ask request
+     Request msg = { .type = ASK_BATTLE };
+     MAKE_PTR(p, msg.battle);
+     strcpy(p->srcID, userID);
+     strcpy(p->dstID, player_list[selected].userID);
+
+     // Send request
+     write(client_socket, &msg, sizeof(msg));
+ }

@@ -34,6 +34,11 @@ ClientState client_state;
 int selected = 0;
 
 /**
+ * @brief 用户名
+ */
+char userID[10] = "N/A";
+
+/**
  * @brief 屏幕刷新的互斥锁
  */
 pthread_mutex_t mutex_refresh = PTHREAD_MUTEX_INITIALIZER;
