@@ -34,7 +34,7 @@ void handle_init_list(Response *msg)
 }
 
 /**
- * @brief 获取服务器推送的信息
+ * @brief 获取服务器推送的信息，进行一部分状态转移
  *
  * 这是登陆后接收服务器报文的唯一入口。
  * 根据报文类型采取具体的处理函数，修改全局数据内容。
@@ -42,7 +42,7 @@ void handle_init_list(Response *msg)
  */
 void *push_service(void *arg)
 {
-    while (1) {
+    while (client_state != QUIT) {
         Response msg;
         read(client_socket, &msg, sizeof(msg));
         switch (msg.type) {
@@ -55,6 +55,20 @@ void *push_service(void *arg)
 }
 
 /**
+ * @brief 获取用户输入的唯一入口，进行一部分状态转移
+ */
+void *user_input(void *arg)
+{
+    while (client_state != QUIT) {
+        int cmd = getch();
+        if (cmd == 'q') {
+            client_state = QUIT;
+        }
+    }
+    return NULL;
+}
+
+/**
  * @brief 更新列表的视图线程
  *
  * TODO 所有视图在一个线程中更新
@@ -62,7 +76,7 @@ void *push_service(void *arg)
 void *update_screen(void *arg)
 {
     WINDOW *wind = arg;
-    while (1) {
+    while (client_state != QUIT) {
         pthread_mutex_lock(&mutex_refresh);
         pthread_mutex_lock(&mutex_list);
         if (player_list) {
@@ -74,19 +88,19 @@ void *update_screen(void *arg)
         pthread_mutex_unlock(&mutex_list);
         pthread_mutex_unlock(&mutex_refresh);
     }
+    return NULL;
 }
 
 void *thread(void *arg)
 {
     WINDOW *wind = arg;
     int i = 0;
-    while (1) {
+    while (client_state != QUIT) {
         pthread_mutex_lock(&mutex_refresh);
         mvwprintw(wind, 0, 0, "hello %d", i++);  // 这货也不是线程安全的！
         wrefresh(wind);
         pthread_mutex_unlock(&mutex_refresh);
     }
-
     return NULL;
 }
 
@@ -137,12 +151,21 @@ void scene_hall(void)
     WINDOW *win_info = newwin(    1, W - 2, H - 4, 1);
     WINDOW *win_help = newwin(    1, W - 2, H - 2, 1);
 
-    pthread_t tid;
-    pthread_create(&tid, NULL, push_service, NULL);
-    pthread_create(&tid, NULL, update_screen, win_list);
-    pthread_create(&tid, NULL, thread, win_info);
-    pthread_create(&tid, NULL, thread, win_help);
+    struct {
+        void *(*thread)(void *);
+        void *arg;
+        pthread_t tid;
+    } threads[] = {
+        { push_service, NULL },
+        { user_input, NULL },
+        { update_screen, win_list },
+        { thread, win_info },
+        { thread, win_help }
+    };
 
-    char ch;
-    while ((ch = getch()) != 'q') ;
+    for (int i = 0; i < sizeof(threads) / sizeof(threads[i]); i++) {
+        pthread_create(&threads[i].tid, NULL, threads[i].thread, threads[i].arg);
+    }
+
+    while (client_state != QUIT) ;
 }

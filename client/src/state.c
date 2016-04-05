@@ -6,6 +6,7 @@
  */
 
 #include <pthread.h>
+#include "state.h"
 
 /**
  * @brief 屏幕宽度
@@ -20,8 +21,12 @@ int H = 0;
 /**
  * @brief 客户端连接套接字
  */
-
 int client_socket = -1;
+
+/**
+ * @brief 客户端状态
+ */
+ClientState client_state;
 
 /**
  * @brief 屏幕刷新的互斥锁
