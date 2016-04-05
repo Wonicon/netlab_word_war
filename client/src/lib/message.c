@@ -41,10 +41,26 @@ int send_login_msg(char username[], char password[])
  * @param username 用户名，限长 9 个字符
  * @param passowrd 密码，限长 9 个字符
  * @return 注册是否成功
- *
- * TODO a fake function
  */
 int send_register_msg(char username[], char password[])
 {
-    return 0;
+    // Construct register request
+    Request request = { .type = REGISTER };
+    strcpy(request.account.userID, username);
+    strcpy(request.account.passwd, password);
+
+    // Send register request
+    write(client_socket, &request, sizeof(request));
+
+    // Receive ack
+    Response response;
+    if (read(client_socket, &response, sizeof(response)) != sizeof(response)) {
+        return 0;
+    }
+    else if (response.type != REGISTER_ACK) {
+        return 0;
+    }
+    else {
+        return 1;
+    }
 }
