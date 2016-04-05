@@ -11,6 +11,8 @@
 #include <pthread.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <proxy.h>
+#include <string.h>
 
 /*
  * 初始化服务器，获得监听套接字
@@ -89,6 +91,54 @@ static int init_server(uint16_t port_no)
 }
 
 
+typedef void (*request_handler)(int socket_fd, Request *msg);
+
+void login_handler(int socket_fd, Request *msg)
+{
+    typeof(&(msg->account)) p = &(msg->account);
+    Response response;
+    printf("%s, %s\n", p->userID, p->passwd);
+    if (!strcmp(p->userID, "mike") && !strcmp(p->passwd, "12345")) {
+        printf("Check\n");
+        response.type = LOGIN_ACK;
+        write(socket_fd, &response, sizeof(response));
+
+        PlayerEntry list[] = {
+                { "Jack", 1, 1, 1 },
+                { "Mike", 1, 1, 1 },
+                { "Nancy", 1, 1, 1 },
+                { "Nancy", 1, 1, 1 },
+                { "Nancy", 1, 1, 1 },
+                { "Nancy", 1, 1, 1 },
+        };
+
+        response.type = LIST_UPDATE;
+        response.list.nr_entry = sizeof(list) / sizeof(list[0]) ;
+
+        write(socket_fd, &response, sizeof(response));
+
+        for (int i = 0; i < response.list.nr_entry; i++) {
+            write(socket_fd, &list[i], sizeof(list[i]));
+        }
+    }
+    else {
+        response.type = LOGOUT_ACK;
+        write(socket_fd, &response, sizeof(response));
+    }
+}
+
+void ask_battle_handler(int socket_fd, Request *msg)
+{
+    printf("battle\n");
+    Response response = { .type = YES_BATTLE };
+    write(socket_fd, &response, sizeof(response));
+}
+
+request_handler handlers[255] = {
+        [LOGIN] = login_handler,
+        [ASK_BATTLE] = ask_battle_handler,
+};
+
 /**
  * @brief 测试连接的简单线程
  * @param arg 实际上是连接套接字
@@ -97,14 +147,13 @@ static int init_server(uint16_t port_no)
 static void *echo(void *arg)
 {
     int fd = (int)(long)arg;  // 连接套接字
-    char buf[1024] = { 0 };
+    Request msg;
 
     printf("Connected on %d\n", fd);
 
     // 接收到 FIN 会退出
-    while (read(fd, buf, sizeof(buf))) {
-        printf("%s\n", buf);
-        write(fd, "Hello", sizeof("Hello"));
+    while (read(fd, &msg, sizeof(msg))) {
+        handlers[msg.type](fd, &msg);
     }
 
     close(fd);
