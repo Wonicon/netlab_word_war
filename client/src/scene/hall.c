@@ -8,6 +8,19 @@
 #include "lib/message.h"
 
 /**
+ * @brief 用于显示通知信息
+ */
+struct {
+    char *buf;
+    size_t len;
+    pthread_mutex_t mutex;
+} info_bar = {
+    NULL,
+    0,
+    PTHREAD_MUTEX_INITIALIZER
+};
+
+/**
  * @brief 获取服务器推送的信息，进行一部分状态转移
  *
  * 这是登陆后接收服务器报文的唯一入口。
@@ -27,6 +40,10 @@ void *push_service(void *arg)
             strcpy(player_list[nr_players].userID, msg.account.id);
             nr_players++;
             pthread_mutex_unlock(&mutex_list);
+
+            pthread_mutex_lock(&info_bar.mutex);
+            snprintf(info_bar.buf, info_bar.len, "%s logged in", msg.account.id);
+            pthread_mutex_unlock(&info_bar.mutex);
         }
         else if (msg.type == LOGOUT_ANNOUNCE) {
             pthread_mutex_lock(&mutex_list);
@@ -37,6 +54,10 @@ void *push_service(void *arg)
             }
             nr_players--;
             pthread_mutex_unlock(&mutex_list);
+
+            pthread_mutex_lock(&info_bar.mutex);
+            snprintf(info_bar.buf, info_bar.len, "%s logged out", msg.account.id);
+            pthread_mutex_unlock(&info_bar.mutex);
         }
 
         switch (client_state) {
@@ -92,40 +113,70 @@ void *user_input(void *arg)
 
 /**
  * @brief 更新列表的视图线程
- *
- * TODO 所有视图在一个线程中更新
  */
 void *update_screen(void *arg)
 {
-    WINDOW *wind = arg;
+    // 定义边框
+    struct {
+        int line;
+        int col;
+        char method;
+        int length;
+    } frames[] = {
+            {     0,     0, '-', W },
+            {     0,     0, '|', H },
+            { H - 5,     0, '-', W },
+            { H - 3,     0, '-', W },
+            { H - 1,     0, '-', W },
+            {     0, W - 1, '|', H },
+            {     0,     0, '+', 0 },
+            {     0, W - 1, '+', 0 },
+            { H - 5,     0, '+', 0 },
+            { H - 5, W - 1, '+', 0 },
+            { H - 3,     0, '+', 0 },
+            { H - 3, W - 1, '+', 0 },
+            { H - 1,     0, '+', 0 },
+            { H - 1, W - 1, '+', 0 }
+    };
+
+    // 画边框
+    for (int i = 0; i < sizeof(frames) / sizeof(frames[0]); i++) {
+        move(frames[i].line, frames[i].col);
+        switch (frames[i].method) {
+            case '-': hline('-', frames[i].length); break;
+            case '|': vline('|', frames[i].length); break;
+            case '+': printw("+"); break;
+            default: break;
+        }
+    }
+
+    info_bar.buf = calloc((size_t)(W - 2), sizeof(char));
+    info_bar.len = (size_t)(W - 3);
+
+    refresh();
+
+    WINDOW *win_list = newwin(H - 6, W - 2,     1, 1);
+    WINDOW *win_info = newwin(    1, W - 2, H - 4, 1);
+    //WINDOW *win_help = newwin(    1, W - 2, H - 2, 1);
+
+    // 更新循环
     while (client_state != QUIT) {
-        pthread_mutex_lock(&mutex_refresh);
+        werase(win_list);
         pthread_mutex_lock(&mutex_list);
-        werase(wind);
         if (player_list) {
             for (int i = 0; i < nr_players; i++) {
                 // TODO 用颜色高亮
                 // TODO 并发粒度太大，选择卡顿
-                mvwprintw(wind, i, 0, "[%c] %s", (selected == i ? '*' : ' '), player_list[i].userID);
+                mvwprintw(win_list, i, 0, "[%c] %s", (selected == i ? '*' : ' '), player_list[i].userID);
                 // 这货也不是线程安全的！
             }
         }
-        wrefresh(wind);
         pthread_mutex_unlock(&mutex_list);
-        pthread_mutex_unlock(&mutex_refresh);
-    }
-    return NULL;
-}
+        wrefresh(win_list);
 
-void *thread(void *arg)
-{
-    WINDOW *wind = arg;
-    int i = 0;
-    while (client_state != QUIT) {
-        pthread_mutex_lock(&mutex_refresh);
-        mvwprintw(wind, 0, 0, "%s %d", (client_state == BATTLING ? "BATTLE" : "IDLE"),i++);  // 这货也不是线程安全的！
-        wrefresh(wind);
-        pthread_mutex_unlock(&mutex_refresh);
+        werase(win_info);
+        wprintw(win_info, "%s", info_bar.buf);
+        wrefresh(win_info);
     }
     return NULL;
 }
@@ -144,53 +195,13 @@ void scene_hall(void)
     getmaxyx(stdscr, H, W);
 
     struct {
-        int line;
-        int col;
-        char method;
-        int length;
-    } frames[] = {
-        {     0,     0, '-', W },
-        {     0,     0, '|', H },
-        { H - 5,     0, '-', W },
-        { H - 3,     0, '-', W },
-        { H - 1,     0, '-', W },
-        {     0, W - 1, '|', H },
-        {     0,     0, '+', 0 },
-        {     0, W - 1, '+', 0 },
-        { H - 5,     0, '+', 0 },
-        { H - 5, W - 1, '+', 0 },
-        { H - 3,     0, '+', 0 },
-        { H - 3, W - 1, '+', 0 },
-        { H - 1,     0, '+', 0 },
-        { H - 1, W - 1, '+', 0 }
-    };
-
-    for (int i = 0; i < sizeof(frames) / sizeof(frames[0]); i++) {
-        move(frames[i].line, frames[i].col);
-        switch (frames[i].method) {
-            case '-': hline('-', frames[i].length); break;
-            case '|': vline('|', frames[i].length); break;
-            case '+': printw("+"); break;
-            default: break;
-        }
-    }
-
-    refresh();
-
-    WINDOW *win_list = newwin(H - 6, W - 2,     1, 1);
-    WINDOW *win_info = newwin(    1, W - 2, H - 4, 1);
-    WINDOW *win_help = newwin(    1, W - 2, H - 2, 1);
-
-    struct {
         void *(*thread)(void *);
         void *arg;
         pthread_t tid;
     } threads[] = {
         { push_service, NULL },
         { user_input, NULL },
-        { update_screen, win_list },
-        { thread, win_info },
-        { thread, win_help }
+        { update_screen, NULL },
     };
 
     for (int i = 0; i < sizeof(threads) / sizeof(threads[i]); i++) {
@@ -200,6 +211,10 @@ void scene_hall(void)
     while (client_state != QUIT) ;
 
     send_logout_msg();
+
+    pthread_mutex_lock(&info_bar.mutex);
+    snprintf(info_bar.buf, info_bar.len, "quiting...");
+    pthread_mutex_unlock(&info_bar.mutex);
 
     sleep(1);
 }
