@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <proxy.h>
 #include "proxy.h"
 #include "func.h"
 
@@ -149,20 +150,24 @@ void handle_login(char *userID, char *passwd, int fd) {
 	struct online_info q = { };
 
 	if(check_table(userID, passwd, &q) != NULL) {
-		//给该玩家发送登录确认的报文
-		ack.type = LOGIN_ACK;
-		ack.account.num = q.num;
-		send(fd, &ack, sizeof(Response), 0);
-
 		//通知其他在线玩家有玩家上线
 		Response announce;
 		announce.type = LOGIN_ANNOUNCE,
 		announce.account.num = 0x01;
 		strncpy(announce.account.id, userID, sizeof(announce.account.id) - 1);
 
-		for(int i = 0; i < MAX_NUM_SOCKET; i++)
-			if(sockfd[i] != -1 && sockfd[i] != fd)
+		for(int i = 0; i < MAX_NUM_SOCKET; i++) {
+			if (sockfd[i] != -1 && sockfd[i] != fd) {
 				send(sockfd[i], &announce, sizeof(Response), 0);
+			}
+		}
+
+		//给该玩家发送登录确认的报文
+		ack.type = LOGIN_ACK;
+		ack.account.num = count_online() - 1;  // 去掉自己
+		printf("%s will receive %d entries\n", userID, ack.account.num);
+		send(fd, &ack, sizeof(Response), 0);
+		send_list(fd, userID);
 	}
 	else {
 		ack.type = LOGIN_ERROR;

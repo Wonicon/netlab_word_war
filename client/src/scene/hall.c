@@ -2,36 +2,8 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <string.h>
 #include "state.h"
-#include "proxy.h"
 #include "lib/message.h"
-
-pthread_mutex_t mutex_list = PTHREAD_MUTEX_INITIALIZER;
-
-PlayerEntry *player_list = NULL;
-
-size_t nr_players = 0;
-
-/**
- * @brief 一开始的齐全的在线用户列表
- *
- * TODO 每次更新整个表开销太大，应发送报文标记特定条目的更新删除
- */
-void handle_init_list(Response *msg)
-{
-    MAKE_PTR(p, msg->list);
-
-    pthread_mutex_lock(&mutex_list);
-
-    nr_players = (size_t)p->nr_entry;
-    player_list = malloc(nr_players * sizeof(player_list[0]));
-    for (int i = 0; i < p->nr_entry; i++) {
-        read(client_socket, &player_list[i], sizeof(player_list[i]));
-    }
-
-    pthread_mutex_unlock(&mutex_list);
-}
 
 /**
  * @brief 获取服务器推送的信息，进行一部分状态转移
@@ -45,10 +17,6 @@ void *push_service(void *arg)
     while (client_state != QUIT) {
         Response msg;
         read(client_socket, &msg, sizeof(msg));
-        switch (msg.type) {
-        case LIST_UPDATE: handle_init_list(&msg); break;
-        default: break;
-        }
 
         switch (client_state) {
         case WAIT_REMOTE_CONFIRM:

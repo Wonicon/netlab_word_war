@@ -10,6 +10,8 @@ struct online_info {
 int insert_table(char *userID, char *passwd);
 struct online_info *check_table(char *userID, char *passwd, struct online_info *q);
 int alter_table(char *userId,int status);
+int send_list(int socket_fd, char username[]);
+int count_online(void);
 
 void handle_register(char *userID, char *passwd,int fd);
 void handle_login(char *userID, char *passwd,int fd);
