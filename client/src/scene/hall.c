@@ -102,7 +102,7 @@ void *push_service(void *arg)
         }
     }
 
-    return NULL;
+    pthread_exit(NULL);
 }
 
 /**
@@ -149,13 +149,12 @@ void *user_input(void *arg)
             noecho();
             break;
         case BATTLING:
-            sleep(1);
-            client_state = IDLE;
             break;
         default: ;
         }
     }
-    return NULL;
+
+    pthread_exit(NULL);
 }
 
 /**
@@ -175,55 +174,13 @@ void draw_battle_screen(WINDOW *wind)
 }
 
 /**
- * @brief 更新列表的视图线程
- *
- * TODO 有时候登陆会有乱码，应该是线程安全问题
- */
-void *update_screen(void *arg)
-{
-    WINDOW *win_list = newwin(H - 6, W - 2,     1, 1);
-    WINDOW *win_info = newwin(    1, W - 2, H - 4, 1);
-    WINDOW *win_help = newwin(    1, W - 2, H - 2, 1);
-
-    wprintw(win_help, "q - quit");
-    wrefresh(win_help);
-
-    // 更新循环
-    while (client_state != QUIT) {
-        werase(win_list);
-        if ((client_state == IDLE || client_state == WAIT_LOCAL_CONFIRM || client_state == WAIT_REMOTE_CONFIRM) && player_list) {
-            pthread_mutex_lock(&mutex_list);
-            for (int i = 0; i < nr_players; i++) {
-                // TODO 用颜色高亮
-                // TODO 并发粒度太大，选择卡顿
-                mvwprintw(win_list, i, 0, "[%c] %s", (selected == i ? '*' : ' '), player_list[i].userID);
-                // 这货也不是线程安全的！
-            }
-            pthread_mutex_unlock(&mutex_list);
-        }
-        else if (client_state == BATTLING) {
-            draw_battle_screen(win_list);
-        }
-        wrefresh(win_list);
-
-        werase(win_info);
-        wprintw(win_info, "%s", info_bar.buf);
-        wrefresh(win_info);
-    }
-    return NULL;
-}
-
-/**
  * @brief 游戏大厅界面，显示在线玩家名单，排名，通知，提供选择交互功能
  */
 void scene_hall(void)
 {
-    init_pair(1, COLOR_WHITE, COLOR_BLUE);
-
-    client_state = IDLE;
-
-    strncpy(me.id, userID, sizeof(me.id) - 1);
-    me.hp = 100;
+    /*
+     * 绘制边框
+     */
 
     erase();
 
@@ -268,6 +225,14 @@ void scene_hall(void)
 
     refresh();
 
+    /*
+     * 初始化客户端状态，启动状态转移线程。
+     */
+
+    client_state = IDLE;
+    strncpy(me.id, userID, sizeof(me.id) - 1);
+    me.hp = 100;
+
     struct {
         void *(*thread)(void *);
         void *arg;
@@ -275,14 +240,45 @@ void scene_hall(void)
     } threads[] = {
         { push_service, NULL },
         { user_input, NULL },
-        { update_screen, NULL },
     };
 
     for (int i = 0; i < sizeof(threads) / sizeof(threads[i]); i++) {
         pthread_create(&threads[i].tid, NULL, threads[i].thread, threads[i].arg);
     }
 
-    while (client_state != QUIT) ;
+    /*
+     * 本函数变成绘图线程
+     */
+
+    WINDOW *win_list = newwin(H - 6, W - 2,     1, 1);
+    WINDOW *win_info = newwin(    1, W - 2, H - 4, 1);
+    WINDOW *win_help = newwin(    1, W - 2, H - 2, 1);
+
+    wprintw(win_help, "q - quit");
+    wrefresh(win_help);
+
+    // 更新循环
+    while (client_state != QUIT) {
+        werase(win_list);
+        if ((client_state == IDLE || client_state == WAIT_LOCAL_CONFIRM || client_state == WAIT_REMOTE_CONFIRM) && player_list) {
+            pthread_mutex_lock(&mutex_list);
+            for (int i = 0; i < nr_players; i++) {
+                // TODO 用颜色高亮
+                // TODO 并发粒度太大，选择卡顿
+                mvwprintw(win_list, i, 0, "[%c] %s", (selected == i ? '*' : ' '), player_list[i].userID);
+                // 这货也不是线程安全的！
+            }
+            pthread_mutex_unlock(&mutex_list);
+        }
+        else if (client_state == BATTLING) {
+            draw_battle_screen(win_list);
+        }
+        wrefresh(win_list);
+
+        werase(win_info);
+        wprintw(win_info, "%s", info_bar.buf);
+        wrefresh(win_info);
+    }
 
     send_logout_msg();
 
@@ -290,5 +286,7 @@ void scene_hall(void)
     snprintf(info_bar.buf, info_bar.len, "quiting...");
     pthread_mutex_unlock(&info_bar.mutex);
 
-    sleep(1);
+    for (int i = 0; i < sizeof(threads) / sizeof(threads[i]); i++) {
+        pthread_join(threads[i].tid, NULL);
+    }
 }
