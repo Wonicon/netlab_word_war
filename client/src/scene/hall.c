@@ -20,7 +20,7 @@ void *push_service(void *arg)
         Response msg;
         read(client_socket, &msg, sizeof(msg));
 
-        // 检查是否是无阻塞的更新列表行为
+        // 先检查是不是纯数据更新报文
         if (msg.type == LOGIN_ANNOUNCE) {
             pthread_mutex_lock(&mutex_list);
             player_list = realloc(player_list, (size_t)(nr_players + 1));
@@ -30,6 +30,9 @@ void *push_service(void *arg)
         }
         else if (msg.type == LOGOUT_ANNOUNCE) {
             pthread_mutex_lock(&mutex_list);
+            // 用最后一项覆盖要删除的项（所以不用看最后一项是谁），之后把数量 - 1，避免 realloc 开销，
+            // 之后只要有新登陆的，就能回收这些空闲的空间。
+            // 但是这样会破坏有序性，如果需要排序的话，还需要进一步的考量！
             for (int i = 0; i < nr_players - 1; i++) {
                 if (!strcmp(player_list[i].userID, msg.account.id)) {
                     player_list[i] = player_list[nr_players - 1];  // Erase the logging-out one.
