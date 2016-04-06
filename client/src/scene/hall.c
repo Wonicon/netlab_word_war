@@ -160,14 +160,14 @@ void *user_input(void *arg)
 /**
  * @brief 绘制对战信息
  */
-static const char *HP_BAR = "##########################################################################";
+char *HP_BAR = NULL;
 void draw_battle_screen(WINDOW *wind)
 {
     int h, w;
     getmaxyx(wind, h, w);
     int len = 10;
-    mvwprintw(wind, 0, 0, "%.*s", len, rival.id);
-    mvwprintw(wind, 0, len, "%*s", rival.hp * (w - len) / 100, HP_BAR);
+    mvwprintw(wind, 0, 0, "%-*.*s", len, len, rival.id);  // left-aligned
+    mvwprintw(wind, 0, len, "%*.*s", rival.hp * (w - len) / 100, w - len, HP_BAR);
 
     mvwprintw(wind, h - 1, w - len, "%*.*s", len, len, me.id);
     mvwprintw(wind, h - 1, 0, "%*.*s", me.hp * (w - len) / 100, w - len, HP_BAR);
@@ -232,6 +232,8 @@ void scene_hall(void)
     client_state = IDLE;
     strncpy(me.id, userID, sizeof(me.id) - 1);
     me.hp = 100;
+    HP_BAR = malloc(sizeof(char) * W);
+    memset(HP_BAR, '#', sizeof(char) * W);
 
     struct {
         void *(*thread)(void *);
