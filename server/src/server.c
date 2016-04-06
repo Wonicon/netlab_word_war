@@ -266,8 +266,32 @@ void handle_yesbattle(char *srcID, char *dstID, int dstfd) {
 		strcpy(ack.battle.dstID,dstID);
 
 		send(srcfd, &ack, sizeof(Response), 0);
+		
 		//TO DO：修改数据库，向其他所有在线玩家发送这两个玩家进入对战状态
+		if(alter_table(srcID,2) == 0 && alter_table(dstID,2) == 0) {
+			Response srcAnnounce = {
+				.type = BATTLE_ANNOUNCE,
+				.account.num = 0x01
+			};
+			strcpy(srcAnnounce.account.id,srcID);
+
+			Response dstAnnounce = {
+				.type = BATTLE_ANNOUNCE,
+				.account.num = 0x01
+			};
+			strcpy(dstAnnounce.account.id,dstID);
+
+			//通知其他在线玩家有玩家进入游戏状态
+			int i;
+			for(int i = 0; i < MAX_NUM_SOCKET; i++)
+				if(sockfd[i].sockfd != -1 && sockfd[i].sockfd != srcfd && sockfd[i].sockfd != dstfd) {
+					send(sockfd[i].sockfd, &srcAnnounce, sizeof(Response),0);
+					send(sockfd[i].sockfd, &dstAnnounce, sizeof(Response),0);
+				}
+		}
+
 		//TO DO：创建对战线程
+
 	}
 	else {
 		ack.type = BATTLE_ERROR;
