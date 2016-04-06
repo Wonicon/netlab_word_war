@@ -24,13 +24,26 @@ static int init_server(uint16_t port_no);
  * 用于测试连接线程
  */
 static void *echo(void *arg);
-int init_table(); 
 
 /*
  *全局数组，记录当前在线玩家的连接套接字
  */
 #define MAX_NUM_SOCKET 10
-int sockfd[MAX_NUM_SOCKET];
+struct socket_id_map sockfd[MAX_NUM_SOCKET];
+
+/*
+ *根据用户ID查询用户在哪个连接上登录的
+ */
+static int query_sockfd(char *userID) {
+	int i;
+	for(i = 0; i < MAX_NUM_SOCKET; i++) {
+		if(strcmp(sockfd[i].userID,userID) == 0)
+			return sockfd[i].sockfd;
+	}
+
+	if(i == MAX_NUM_SOCKET)
+		return -1;
+}
 
 /**
  * @brief 服务器程序入口
@@ -52,8 +65,10 @@ int main(int argc, char *argv[])
 
     int listen_sock = init_server((uint16_t)port_no);
 	int i;
-	for(i = 0; i < MAX_NUM_SOCKET; i++)
-		sockfd[i] = -1;
+	for(i = 0; i < MAX_NUM_SOCKET; i++) {
+		sockfd[i].sockfd = -1;
+		memset(sockfd[i].userID,0,10);
+	}
 
     for(;;) {
         pthread_t tid;
@@ -63,8 +78,8 @@ int main(int argc, char *argv[])
 
 		int i;
 		for(i = 0; i < MAX_NUM_SOCKET; i++)
-			if(sockfd[i] == -1) {
-				sockfd[i] = connect_sock;
+			if(sockfd[i].sockfd == -1) {
+				sockfd[i].sockfd = connect_sock;
 				break;
 			}
 
@@ -131,6 +146,17 @@ static void *echo(void *arg)
 			handle_login(q->account.userID,q->account.passwd,fd);
 		else if(q->type == LOGOUT) //退出报文
 			handle_logout(q->account.userID,fd);
+
+		else if(q->type == ASK_BATTLE) //请求对战
+			handle_askbattle(q->battle.srcID,q->battle.dstID,srcfd);
+		else if(q->type == YES_BATTLE) //答应对战
+			;
+		else if(q->type == NO_BATTLE) //拒绝对战
+			;
+		else if(q->type == IN_BATTLE) //对战报文
+			;
+		else if(q->type == END_BATTLE) //某一方血量为0，结束对战
+			;
         //printf("%s\n", buf);
         //write(fd, "Hello", sizeof("Hello"));
     }
@@ -152,10 +178,9 @@ void handle_register(char *userID, char *passwd,int fd) {
 
 	ack.single.num = 1;
 	memset(ack.single.data,0,200);
-	sprintf(ack.single.data,"%s%s",userID,passwd);
-	//strncpy(ack.single.data,userID,);
-	//strcat(ack.single.data,userID);
-	//strcat(ack.single.data,passwd);
+	//sprintf(ack.single.data,"%s%s",userID,passwd);
+	strncpy(ack.single.data,userID,9);
+	strncpy(ack.single.data + 9,"0",1);
 
 	send(fd,&ack,sizeof(Response),0);
 }
@@ -183,9 +208,12 @@ void handle_login(char *userID, char *passwd, int fd) {
 		strncpy(announce.single.data + 9,"1",1);
 
 		int i;
-		for(i = 0; i < MAX_NUM_SOCKET; i++)
-			if(sockfd[i] != -1 && sockfd[i] != fd)
-				send(sockfd[i],&announce,sizeof(Response),0);
+		for(i = 0; i < MAX_NUM_SOCKET; i++) {
+			if(sockfd[i].sockfd != -1 && sockfd[i].sockfd != fd)
+				send(sockfd[i].sockfd,&announce,sizeof(Response),0);
+			else if(sockfd[i].sockfd != -1 && sockfd[i].sockfd == fd)
+				strcpy(sockfd[i].userID,userID);
+		}
 	}
 	else {
 		ack.type = LOGIN_ERROR;
@@ -204,8 +232,11 @@ void handle_logout(char *userID,int fd) {
 		strncpy(ack.single.data + 9,"0",1);
 		
 		int i;
-		for(i = 0; i < MAX_NUM_SOCKET; i++)
-			if(sockfd[i] != -1 && sockfd[i] != fd)
-				send(sockfd[i],&ack,sizeof(Response),0);
+		for(i = 0; i < MAX_NUM_SOCKET; i++) {
+			if(sockfd[i].sockfd != -1 && sockfd[i].sockfd != fd)
+				send(sockfd[i].sockfd,&ack,sizeof(Response),0);
+			else if(sockfd[i].sockfd != -1 && sockfd[i].sockfd == fd)
+				memset(sockfd[i].userID,0,10);
+		}
 	}
 }
