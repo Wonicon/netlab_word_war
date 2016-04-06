@@ -45,7 +45,7 @@ void *push_service(void *arg)
         // 先检查是不是纯数据更新报文
         if (msg.type == LOGIN_ANNOUNCE) {
             pthread_mutex_lock(&mutex_list);
-            player_list = realloc(player_list, (size_t)(nr_players + sizeof(PlayerEntry)));
+            player_list = realloc(player_list, (nr_players + 1) * sizeof(PlayerEntry));
             strcpy(player_list[nr_players].userID, msg.account.id);
             nr_players++;
             pthread_mutex_unlock(&mutex_list);
