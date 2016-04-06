@@ -48,3 +48,13 @@ clean:
 	-@rm -rf $(TEMP) 2> /dev/null
 	-@rm -f $(CLIENT).bin 2> /dev/null
 	-@rm -f $(SERVER).bin 2> /dev/null
+
+gdbserver:
+	gdbserver :5000 $(CLIENT).bin 127.0.0.1 1111
+
+GDB_FLAGS += -ex "set print pretty on"
+GDB_FLAGS += -ex "symbol-file $(CLIENT).bin"
+GDB_FLAGS := -ex "target remote 127.0.0.1:5000"
+
+debug:
+	gdb $(GDB_FLAGS)

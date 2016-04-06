@@ -282,6 +282,8 @@ void scene_hall(void)
 
     send_logout_msg();
 
+    close(client_socket);
+
     pthread_mutex_lock(&info_bar.mutex);
     snprintf(info_bar.buf, info_bar.len, "quiting...");
     pthread_mutex_unlock(&info_bar.mutex);

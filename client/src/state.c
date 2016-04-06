@@ -7,7 +7,6 @@
 
 #include <pthread.h>
 #include "state.h"
-#include "proxy.h"
 
 /**
  * @brief 屏幕宽度

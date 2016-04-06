@@ -135,8 +135,10 @@ static void *echo(void *arg)
 			handle_register(msg.account.userID, msg.account.passwd, fd);
 		else if(msg.type == LOGIN) //登录报文
 			handle_login(msg.account.userID, msg.account.passwd, fd);
-		else if (msg.type == LOGOUT)
+		else if (msg.type == LOGOUT) {
 			handle_logout(msg.account.userID, fd);
+			break;
+		}
 		else if(msg.type == ASK_BATTLE) //请求对战
 			handle_askbattle(msg.battle.srcID, msg.battle.dstID, fd); //fd是邀战方的套接字
 		else if(msg.type == YES_BATTLE) //答应对战
