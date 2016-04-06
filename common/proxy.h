@@ -49,6 +49,14 @@
 #define OFFLINE 0x02   //离线
 #define PLAY 0x03      //正在对战
 
+//某一轮出招的胜负
+#define WIN 0x01       //胜
+#define FAIL 0x02      //负
+#define TIE 0x03       //平局
+
+//定义初始血量
+#define INIT_HP 5
+
 //合并了两种类型的报文，具体的报文类型由type字段决定，服务器端类似
 #pragma pack(1)
 typedef struct {
@@ -78,6 +86,7 @@ typedef struct {
 		struct {
 			char srcID[10];
 			char dstID[10];
+			uint8_t result;
 			uint8_t srcattack;
 			uint8_t dstattack;
 			uint8_t srcHP;

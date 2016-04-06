@@ -29,7 +29,7 @@ static void *echo(void *arg);
  *全局数组，记录当前在线玩家的连接套接字，和当前在该连接上登录的用户ID
  */
 #define MAX_NUM_SOCKET 10
-struct socket_id_map sockfd[MAX_NUM_SOCKET];
+struct server_thread sockfd[MAX_NUM_SOCKET];
 
 /*
  *根据用户ID查询用户在哪个连接上登录的,在玩家对战时需要知道用户ID在哪个套接字上登录的
@@ -82,11 +82,9 @@ int main(int argc, char *argv[])
 		for(i = 0; i < MAX_NUM_SOCKET; i++)
 			if(sockfd[i].sockfd == -1) {
 				sockfd[i].sockfd = connect_sock;
-
-/*		for(int i = 0; i < MAX_NUM_SOCKET; i++)
-			if(sockfd[i] == -1) {
-				sockfd[i] = connect_sock;
-*/				break;
+				memset(sockfd[i].userID,0,10);
+				sockfd[i].state = 0;
+				break;
 			}
 
         pthread_create(&tid, NULL, echo, (void *)(long)connect_sock);
@@ -153,8 +151,19 @@ static void *echo(void *arg)
 			handle_yesbattle(msg.battle.srcID, msg.battle.dstID, fd); //fd是应战方的套接字
 		else if(msg.type == NO_BATTLE) //拒绝对战
 			handle_nobattle(msg.battle.srcID, msg.battle.dstID, fd);  //fd是应战方的套接字
-		else if(msg.type == IN_BATTLE) //对战报文
-			;
+		else if(msg.type == IN_BATTLE) {//对战报文
+			//handle_inbattle(fd);
+			int i;
+			int pos = -1;
+			for(i = 0; i < MAX_NUM_SOCKET; i++)
+				if(sockfd[i].sockfd == fd) {
+					pos = i;
+					break;
+				}
+
+			sockfd[pos].attack = msg.battle.attack;
+			sockfd[pos].state = 1;
+		}
 		else if(msg.type == END_BATTLE) //某一方血量为0，结束对战
 			;
     }
@@ -235,6 +244,7 @@ void handle_logout(char *userID, int fd) {
 			else if (sockfd[i].sockfd == fd) {
 				sockfd[i].sockfd = -1;  // Release the slot.
 				memset(sockfd[i].userID,0,10);
+				sockfd[i].state = 0;
 			}
 		}
 	}
@@ -267,7 +277,7 @@ void handle_yesbattle(char *srcID, char *dstID, int dstfd) {
 
 		send(srcfd, &ack, sizeof(Response), 0);
 		
-		//TO DO：修改数据库，向其他所有在线玩家发送这两个玩家进入对战状态
+		//修改数据库，向其他所有在线玩家发送这两个玩家进入对战状态
 		if(alter_table(srcID,2) == 0 && alter_table(dstID,2) == 0) {
 			Response srcAnnounce = {
 				.type = BATTLE_ANNOUNCE,
@@ -283,14 +293,24 @@ void handle_yesbattle(char *srcID, char *dstID, int dstfd) {
 
 			//通知其他在线玩家有玩家进入游戏状态
 			int i;
-			for(int i = 0; i < MAX_NUM_SOCKET; i++)
+			for(i = 0; i < MAX_NUM_SOCKET; i++)
 				if(sockfd[i].sockfd != -1 && sockfd[i].sockfd != srcfd && sockfd[i].sockfd != dstfd) {
 					send(sockfd[i].sockfd, &srcAnnounce, sizeof(Response),0);
 					send(sockfd[i].sockfd, &dstAnnounce, sizeof(Response),0);
 				}
 		}
 
-		//TO DO：创建对战线程
+		//创建对战线程
+		struct argc {
+			int srcfd;
+			int dstfd;
+		} a;
+		
+		a.srcfd = srcfd;
+		a.dstfd = dstfd;
+
+		pthread_t tid;
+		pthread_create(&tid, NULL, battle, (void *)&a);
 
 	}
 	else {
@@ -315,4 +335,134 @@ void handle_nobattle(char *srcID, char *dstID, int dstfd) {
 		printf("src player %s is offline!\n", srcID);
 		send(srcfd, &ack, sizeof(Response), 0);
 	}
+}
+
+void *battle(void *argc) {
+	struct param {
+		int srcfd;
+		int dstfd;
+	} *a;
+	a = (struct param*)argc;
+
+	int srcfd = a->srcfd;
+	int dstfd = a->dstfd;
+
+	//找到套接字对应的server_thread结构体
+	int srcpos, dstpos, i;
+	for(i = 0; i < MAX_NUM_SOCKET; i++)
+		if(sockfd[i].sockfd == srcfd)
+			srcpos = i;
+		else if(sockfd[i].sockfd == dstfd)
+			dstpos = i;
+
+	//进行初始化
+	sockfd[srcpos].HP = INIT_HP;
+	sockfd[dstpos].HP = INIT_HP;
+
+	//当双方血量都不为0时，持续进行多轮对战
+	while(sockfd[srcpos].HP != 0 && sockfd[dstpos].HP != 0) {
+		//计时，等待两个玩家出招，暂时仅用一个time_count变量来计数
+		unsigned long int time_count = 0;
+		while(!(sockfd[srcpos].state == 1 && sockfd[dstpos].state == 1)) {
+			time_count++;
+			if(time_count == TIME_OUT)
+				break;
+		}
+
+		//如果超时
+		if(time_count == TIME_OUT) {
+			//双方同时掉线，HP减1是为了防止对战线程一直在空等待
+			if(sockfd[srcpos].state == 0 && sockfd[dstpos].state == 0) {
+				sockfd[srcpos].result = TIE;
+				sockfd[dstpos].result = TIE;
+				sockfd[srcpos].HP -= 1;
+				sockfd[dstpos].HP -= 1;
+			}
+			//dst超时
+			else if(sockfd[srcpos].state == 1 && sockfd[dstpos].state == 0) {
+				sockfd[srcpos].result = WIN;
+				sockfd[dstpos].result = FAIL;
+				sockfd[dstpos].HP -= 1;
+			}
+			//src超时
+			else if(sockfd[srcpos].state == 0 && sockfd[dstpos].state == 1){
+				sockfd[srcpos].result = FAIL;
+				sockfd[dstpos].result = WIN;
+				sockfd[srcpos].HP -= 1;
+			}
+
+		}
+		//不超时，招式对比
+		else {
+			//出招一样
+			if(sockfd[srcpos].attack == sockfd[dstpos].attack) {
+				sockfd[srcpos].result = TIE;
+				sockfd[dstpos].result = TIE;
+			}
+			//src赢（石头0x01--剪刀0x02,剪刀0x02--布0x03，布0x03--石头0x01
+			else if((sockfd[srcpos].attack + 1 == sockfd[dstpos].attack) || (sockfd[srcpos].attack == sockfd[dstpos].attack + 2)) {
+				sockfd[srcpos].result = WIN;
+				sockfd[dstpos].result = FAIL;
+				sockfd[dstpos].HP -= 1;
+			}
+			//dst赢
+			else {
+				sockfd[srcpos].result = FAIL;
+				sockfd[dstpos].result = WIN;
+				sockfd[srcpos].HP -= 1;
+			}
+
+		}
+
+		//一轮处理完毕,发送结果，并为下一轮对战做准备
+		Response srcack = {
+			.type = IN_BATTLE,
+			.battle.result = sockfd[srcpos].result,
+			.battle.srcattack = sockfd[srcpos].attack,
+			.battle.dstattack = sockfd[dstpos].attack,
+			.battle.srcHP = sockfd[srcpos].HP,
+			.battle.dstHP = sockfd[dstpos].HP
+		};
+		strcpy(srcack.battle.srcID, sockfd[srcpos].userID);
+		strcpy(srcack.battle.dstID, sockfd[dstpos].userID);
+
+		Response dstack = {
+			.type = IN_BATTLE,
+			.battle.result = sockfd[dstpos].result,
+			.battle.srcattack = sockfd[dstpos].attack,
+			.battle.dstattack = sockfd[srcpos].attack,
+			.battle.srcHP = sockfd[dstpos].HP,
+			.battle.dstHP = sockfd[srcpos].HP
+		};
+		strcpy(dstack.battle.srcID, sockfd[dstpos].userID);
+		strcpy(dstack.battle.dstID, sockfd[srcpos].userID);
+
+		send(sockfd[srcpos].sockfd,&srcack,sizeof(Response),0);
+		send(sockfd[dstpos].sockfd,&dstack,sizeof(Response),0);
+
+		sockfd[srcpos].state = 0;
+		sockfd[dstpos].state = 0;
+	}
+
+	//有一方血量为0，发送结束报文
+	Response srcendack = {
+		.type = END_BATTLE,
+		.battle.srcHP = sockfd[srcpos].HP,
+		.battle.dstHP = sockfd[dstpos].HP
+	};
+	strcpy(srcendack.battle.srcID, sockfd[srcpos].userID);
+	strcpy(srcendack.battle.dstID, sockfd[dstpos].userID);
+
+	Response dstendack = {
+		.type = END_BATTLE,
+		.battle.srcHP = sockfd[dstpos].HP,
+		.battle.dstHP = sockfd[srcpos].HP
+	};
+	strcpy(dstendack.battle.srcID, sockfd[dstpos].userID);
+	strcpy(dstendack.battle.dstID, sockfd[srcpos].userID);
+
+	send(sockfd[srcpos].sockfd,&srcendack,sizeof(Response),0);
+	send(sockfd[dstpos].sockfd,&dstendack,sizeof(Response),0);
+
+	return argc;
 }
