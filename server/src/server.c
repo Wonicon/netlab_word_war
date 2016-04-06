@@ -135,6 +135,8 @@ static void *echo(void *arg)
 			handle_register(msg.account.userID, msg.account.passwd, fd);
 		else if(msg.type == LOGIN) //登录报文
 			handle_login(msg.account.userID, msg.account.passwd, fd);
+		else if (msg.type == LOGOUT)
+			handle_logout(msg.account.userID, fd);
 		else if(msg.type == ASK_BATTLE) //请求对战
 			handle_askbattle(msg.battle.srcID, msg.battle.dstID, fd); //fd是邀战方的套接字
 		else if(msg.type == YES_BATTLE) //答应对战
@@ -145,9 +147,10 @@ static void *echo(void *arg)
 			;
 		else if(msg.type == END_BATTLE) //某一方血量为0，结束对战
 			;
+
+		memset(&msg, 0, sizeof(msg));  // 由于使用了联合体，不清空缓冲区可能会干扰判断。
     }
 
-	handle_logout(msg.account.userID,fd);
     close(fd);
 
     printf("Close connection on %d\n", fd);

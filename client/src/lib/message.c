@@ -67,7 +67,7 @@ void send_logout_msg(void)
     strcpy(request.account.userID, userID);
 
     // Send logout request
-    write(client_state, &request, sizeof(request));
+    write(client_socket, &request, sizeof(request));
 }
 
 /**
