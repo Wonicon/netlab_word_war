@@ -32,6 +32,7 @@ int send_login_msg(char username[], char password[])
         return 0;
     }
     else {
+        strncpy(userID, username, sizeof(userID) - 1);  // Update client record.
         return 1;
     }
 }

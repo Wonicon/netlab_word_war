@@ -10,4 +10,6 @@ int send_register_msg(char username[], char password[]);
 // 发送对战请求
 void send_invitation_msg(void);
 
+void send_logout_msg(void);
+
 #endif

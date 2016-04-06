@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include "state.h"
 #include "proxy.h"
 #include "lib/message.h"
@@ -207,5 +208,8 @@ void scene_hall(void)
     }
 
     while (client_state != QUIT) ;
+
+    send_logout_msg();
+
     sleep(1);
 }

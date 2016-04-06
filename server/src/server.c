@@ -108,55 +108,6 @@ static int init_server(uint16_t port_no)
     return socket_fd;
 }
 
-
-typedef void (*request_handler)(int socket_fd, Request *msg);
-
-void login_handler(int socket_fd, Request *msg)
-{
-    typeof(&(msg->account)) p = &(msg->account);
-    Response response;
-    printf("%s, %s\n", p->userID, p->passwd);
-    if (!strcmp(p->userID, "mike") && !strcmp(p->passwd, "12345")) {
-        printf("Check\n");
-        response.type = LOGIN_ACK;
-        write(socket_fd, &response, sizeof(response));
-
-        PlayerEntry list[] = {
-                { "Jack", 1, 1, 1 },
-                { "Mike", 1, 1, 1 },
-                { "Nancy", 1, 1, 1 },
-                { "Nancy", 1, 1, 1 },
-                { "Nancy", 1, 1, 1 },
-                { "Nancy", 1, 1, 1 },
-        };
-
-        response.type = LIST_UPDATE;
-        response.list.nr_entry = sizeof(list) / sizeof(list[0]) ;
-
-        write(socket_fd, &response, sizeof(response));
-
-        for (int i = 0; i < response.list.nr_entry; i++) {
-            write(socket_fd, &list[i], sizeof(list[i]));
-        }
-    }
-    else {
-        response.type = LOGOUT_ACK;
-        write(socket_fd, &response, sizeof(response));
-    }
-}
-
-void ask_battle_handler(int socket_fd, Request *msg)
-{
-    printf("battle\n");
-    Response response = { .type = YES_BATTLE };
-    write(socket_fd, &response, sizeof(response));
-}
-
-request_handler handlers[255] = {
-        [LOGIN] = login_handler,
-        [ASK_BATTLE] = ask_battle_handler,
-};
-
 /**
  * @brief 测试连接的简单线程
  * @param arg 实际上是连接套接字
@@ -176,8 +127,6 @@ static void *echo(void *arg)
 			handle_register(msg.account.userID, msg.account.passwd, fd);
 		else if(msg.type == LOGIN) //登录报文
 			handle_login(msg.account.userID, msg.account.passwd, fd);
-		else if(msg.type == LOGOUT) //退出报文
-			handle_logout(msg.account.userID, fd);
     }
 
 	handle_logout(msg.account.userID,fd);
@@ -188,68 +137,49 @@ static void *echo(void *arg)
     return arg;
 }
 
-void handle_register(char *userID, char *passwd,int fd) {
-	Response ack;
-	if(insert_table(userID,passwd) == 0)
-		ack.type = REGISTER_ACK;
-	else 
-		ack.type = ID_CONFLICT;
-
-	ack.single.num = 1;
-	memset(ack.single.data,0,200);
-	sprintf(ack.single.data,"%s%s",userID,passwd);
-	//strncpy(ack.single.data,userID,);
-	//strcat(ack.single.data,userID);
-	//strcat(ack.single.data,passwd);
-
-	send(fd,&ack,sizeof(Response),0);
+void handle_register(char *userID, char *password,int fd) {
+	Response ack = {
+			.type = (insert_table(userID, password) == 0) ? REGISTER_ACK : ID_CONFLICT,
+	};
+	send(fd, &ack, sizeof(ack), 0);
 }
 
 void handle_login(char *userID, char *passwd, int fd) {
-	Response ack;
-	memset(ack.single.data,0,200);
+	Response ack = { };
+	struct online_info q = { };
 
-	struct online_info q;
-	q.num = 0;
-	memset(q.data,0,200);
-
-	if(check_table(userID,passwd,&q) != NULL) {
+	if(check_table(userID, passwd, &q) != NULL) {
 		//给该玩家发送登录确认的报文
 		ack.type = LOGIN_ACK;
-		ack.single.num = q.num;
-		strncpy(ack.single.data,q.data,200);
-		send(fd,&ack,sizeof(Response),0);
+		ack.account.num = q.num;
+		send(fd, &ack, sizeof(Response), 0);
 
 		//通知其他在线玩家有玩家上线
 		Response announce;
 		announce.type = LOGIN_ANNOUNCE,
-		announce.single.num = 0x01;
-		strncpy(announce.single.data,userID,9);
-		strncpy(announce.single.data + 9,"1",1);
+		announce.account.num = 0x01;
+		strncpy(announce.account.id, userID, sizeof(announce.account.id) - 1);
 
-		int i;
-		for(i = 0; i < MAX_NUM_SOCKET; i++)
+		for(int i = 0; i < MAX_NUM_SOCKET; i++)
 			if(sockfd[i] != -1 && sockfd[i] != fd)
-				send(sockfd[i],&announce,sizeof(Response),0);
+				send(sockfd[i], &announce, sizeof(Response), 0);
 	}
 	else {
 		ack.type = LOGIN_ERROR;
-		send(fd,&ack,sizeof(Response),0);
+		send(fd, &ack, sizeof(Response), 0);
 	}
 }
 
 void handle_logout(char *userID,int fd) {
-	Response ack;
-	memset(ack.single.data,0,200);
 
-	if(alter_table(userID,0) == 0) {
+	printf("LOGOUT: %s\n", userID);
+	if(alter_table(userID, 0) == 0) {
+		Response ack = { };
 		ack.type = LOGOUT_ANNOUNCE;
-		ack.single.num = 0x01;
-		strncpy(ack.single.data,userID,9);
-		strncpy(ack.single.data + 9,"0",1);
-		
-		int i;
-		for(i = 0; i < MAX_NUM_SOCKET; i++)
+		ack.account.num = 0x01;
+		strncpy(ack.account.id, userID, sizeof(ack.account.id) - 1);
+
+		for(int i = 0; i < MAX_NUM_SOCKET; i++)
 			if(sockfd[i] != -1 && sockfd[i] != fd)
 				send(sockfd[i],&ack,sizeof(Response),0);
 	}
