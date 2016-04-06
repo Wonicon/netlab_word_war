@@ -117,3 +117,17 @@ int send_register_msg(char username[], char password[])
      // Send request
      write(client_socket, &msg, sizeof(msg));
  }
+
+/**
+ * @brief 发送确认对战要求的报文
+ */
+void send_battle_ack(const char src[])
+{
+    // Construct yes
+    Request msg = { .type = YES_BATTLE };
+    strncpy(msg.battle.dstID, userID, sizeof(msg.battle.dstID));
+    strncpy(msg.battle.srcID, src, sizeof(msg.battle.srcID));
+
+    // Send yes
+    write(client_socket, &msg, sizeof(msg));
+}

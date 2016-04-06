@@ -14,13 +14,10 @@ struct {
     char *buf;
     size_t len;
     pthread_mutex_t mutex;
-    int cursor_x;
-    int cursor_y;
 } info_bar = {
     NULL,
     0,
-    PTHREAD_MUTEX_INITIALIZER,
-    -1
+    PTHREAD_MUTEX_INITIALIZER
 };
 
 typedef struct {
@@ -80,21 +77,25 @@ void *push_service(void *arg)
         case IDLE:
             if (msg.type == ASK_BATTLE) {
                 client_state = WAIT_LOCAL_CONFIRM;
+                strncpy(rival.id, msg.battle.srcID, sizeof(rival.id));
                 pthread_mutex_lock(&info_bar.mutex);
-                snprintf(info_bar.buf, info_bar.len, "%s asks for battling (y for yes, n for no)%n",
-                         msg.battle.srcID, &info_bar.cursor_y);
+                snprintf(info_bar.buf, info_bar.len, "%s asks for battling (y for yes, n for no)", msg.battle.srcID);
                 pthread_mutex_unlock(&info_bar.mutex);
-                move(H - 4, info_bar.cursor_y);  // TODO Ugly
-                curs_set(2);
-                echo();
             }
         // 等待对战请求响应，忽视其他报文，TODO 拒绝新的对战请求
         case WAIT_REMOTE_CONFIRM:
-            if (msg.type == NO_BATTLE) {
+            if (msg.type == NO_BATTLE || msg.type == BATTLE_ERROR) {
                 client_state = IDLE;
             }
             else if (msg.type == YES_BATTLE) {
+                // 状态转移
                 client_state = BATTLING;
+                // 缓存对手信息
+                strncpy(rival.id, msg.battle.dstID, sizeof(rival.id));
+                // Update info bar
+                pthread_mutex_lock(&info_bar.mutex);
+                snprintf(info_bar.buf, info_bar.len, "battling with %s", rival.id);
+                pthread_mutex_unlock(&info_bar.mutex);
             }
             break;
         default: ;
@@ -133,7 +134,14 @@ void *user_input(void *arg)
             break;
         case WAIT_LOCAL_CONFIRM:
             if (cmd == 'y') {
+                // 状态转移
                 client_state = BATTLING;
+                // 通知对方
+                send_battle_ack(rival.id);
+                // 更新 info bar
+                pthread_mutex_lock(&info_bar.mutex);
+                snprintf(info_bar.buf, info_bar.len, "battling with %s", rival.id);
+                pthread_mutex_unlock(&info_bar.mutex);
             }
             else if (cmd == 'n') {
                 client_state = IDLE;
@@ -162,8 +170,8 @@ void draw_battle_screen(WINDOW *wind)
     mvwprintw(wind, 0, 0, "%.*s", len, rival.id);
     mvwprintw(wind, 0, len, "%*s", rival.hp * (w - len) / 100, HP_BAR);
 
-    mvwprintw(wind, h - 1, w - len, "%-.*s", len, me.id);
-    mvwprintw(wind, h - 1, 0, "%-*.*s", me.hp * (w - len) / 100, w - len, HP_BAR);
+    mvwprintw(wind, h - 1, w - len, "%*.*s", len, len, me.id);
+    mvwprintw(wind, h - 1, 0, "%*.*s", me.hp * (w - len) / 100, w - len, HP_BAR);
 }
 
 /**
@@ -173,45 +181,6 @@ void draw_battle_screen(WINDOW *wind)
  */
 void *update_screen(void *arg)
 {
-    // 定义边框
-    struct {
-        int line;
-        int col;
-        char method;
-        int length;
-    } frames[] = {
-            {     0,     0, '-', W },
-            {     0,     0, '|', H },
-            { H - 5,     0, '-', W },
-            { H - 3,     0, '-', W },
-            { H - 1,     0, '-', W },
-            {     0, W - 1, '|', H },
-            {     0,     0, '+', 0 },
-            {     0, W - 1, '+', 0 },
-            { H - 5,     0, '+', 0 },
-            { H - 5, W - 1, '+', 0 },
-            { H - 3,     0, '+', 0 },
-            { H - 3, W - 1, '+', 0 },
-            { H - 1,     0, '+', 0 },
-            { H - 1, W - 1, '+', 0 }
-    };
-
-    // 画边框
-    for (int i = 0; i < sizeof(frames) / sizeof(frames[0]); i++) {
-        move(frames[i].line, frames[i].col);
-        switch (frames[i].method) {
-            case '-': hline('-', frames[i].length); break;
-            case '|': vline('|', frames[i].length); break;
-            case '+': printw("+"); break;
-            default: break;
-        }
-    }
-
-    info_bar.buf = calloc((size_t)(W - 2), sizeof(char));
-    info_bar.len = (size_t)(W - 3);
-
-    refresh();
-
     WINDOW *win_list = newwin(H - 6, W - 2,     1, 1);
     WINDOW *win_info = newwin(    1, W - 2, H - 4, 1);
     WINDOW *win_help = newwin(    1, W - 2, H - 2, 1);
@@ -259,6 +228,45 @@ void scene_hall(void)
     erase();
 
     getmaxyx(stdscr, H, W);
+
+    // 定义边框
+    struct {
+        int line;
+        int col;
+        char method;
+        int length;
+    } frames[] = {
+            {     0,     0, '-', W },
+            {     0,     0, '|', H },
+            { H - 5,     0, '-', W },
+            { H - 3,     0, '-', W },
+            { H - 1,     0, '-', W },
+            {     0, W - 1, '|', H },
+            {     0,     0, '+', 0 },
+            {     0, W - 1, '+', 0 },
+            { H - 5,     0, '+', 0 },
+            { H - 5, W - 1, '+', 0 },
+            { H - 3,     0, '+', 0 },
+            { H - 3, W - 1, '+', 0 },
+            { H - 1,     0, '+', 0 },
+            { H - 1, W - 1, '+', 0 }
+    };
+
+    // 画边框
+    for (int i = 0; i < sizeof(frames) / sizeof(frames[0]); i++) {
+        move(frames[i].line, frames[i].col);
+        switch (frames[i].method) {
+            case '-': hline('-', frames[i].length); break;
+            case '|': vline('|', frames[i].length); break;
+            case '+': printw("+"); break;
+            default: break;
+        }
+    }
+
+    info_bar.buf = calloc((size_t)(W - 2), sizeof(char));
+    info_bar.len = (size_t)(W - 3);
+
+    refresh();
 
     struct {
         void *(*thread)(void *);

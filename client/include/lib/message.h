@@ -12,4 +12,6 @@ void send_invitation_msg(void);
 
 void send_logout_msg(void);
 
+void send_battle_ack(const char src[]);
+
 #endif

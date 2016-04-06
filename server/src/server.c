@@ -180,18 +180,6 @@ void handle_login(char *userID, char *passwd, int fd) {
 		Response announce;
 		announce.type = LOGIN_ANNOUNCE,
 
-		/*announce.single.num = 0x01;
-		strncpy(announce.single.data,userID,9);
-		strncpy(announce.single.data + 9,"1",1);
-
-		int i;
-		for(i = 0; i < MAX_NUM_SOCKET; i++) {
-			if(sockfd[i].sockfd != -1 && sockfd[i].sockfd != fd)
-				send(sockfd[i].sockfd,&announce,sizeof(Response),0);
-			else if(sockfd[i].sockfd != -1 && sockfd[i].sockfd == fd)
-				strcpy(sockfd[i].userID,userID);
-		}*/
-
 		announce.account.num = 0x01;
 		strncpy(announce.account.id, userID, sizeof(announce.account.id) - 1);
 
@@ -208,7 +196,6 @@ void handle_login(char *userID, char *passwd, int fd) {
 		printf("%s will receive %d entries\n", userID, ack.account.num);
 		send(fd, &ack, sizeof(Response), 0);
 		send_list(fd, userID);
-
 	}
 	else {
 		ack.type = LOGIN_ERROR;
@@ -261,7 +248,7 @@ void handle_yesbattle(char *srcID, char *dstID, int dstfd) {
 		ack.type = YES_BATTLE;
 		strcpy(ack.battle.srcID,srcID);
 		strcpy(ack.battle.dstID,dstID);
-
+		printf("yes battle: %s -> %s", ack.battle.srcID, ack.battle.dstID);
 		send(srcfd, &ack, sizeof(Response), 0);
 		//TO DO：修改数据库，向其他所有在线玩家发送这两个玩家进入对战状态
 		//TO DO：创建对战线程
