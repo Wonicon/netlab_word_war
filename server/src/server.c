@@ -77,18 +77,6 @@ int main(int argc, char *argv[])
         socklen_t sock_len;
         struct sockaddr_in addr;
         int connect_sock = accept(listen_sock, (struct sockaddr *)&addr, &sock_len);
-
-		int i;
-		for(i = 0; i < MAX_NUM_SOCKET; i++)
-			if(sockfd[i].sockfd == -1) {
-				sockfd[i].sockfd = connect_sock;
-
-/*		for(int i = 0; i < MAX_NUM_SOCKET; i++)
-			if(sockfd[i] == -1) {
-				sockfd[i] = connect_sock;
-*/				break;
-			}
-
         pthread_create(&tid, NULL, echo, (void *)(long)connect_sock);
     }
 }
@@ -179,6 +167,15 @@ void handle_login(char *userID, char *passwd, int fd) {
 	struct online_info q = { };
 
 	if(check_table(userID, passwd, &q) != NULL) {
+		// 只持续维护登陆连接
+		for(int i = 0; i < MAX_NUM_SOCKET; i++) {
+			if (sockfd[i].sockfd == -1) {
+				sockfd[i].sockfd = fd;
+				strncpy(sockfd[i].userID, userID, sizeof(sockfd[i].userID) - 1);
+				break;
+			}
+		}
+
 		//通知其他在线玩家有玩家上线
 		Response announce;
 		announce.type = LOGIN_ANNOUNCE,
