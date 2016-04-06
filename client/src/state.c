@@ -6,6 +6,8 @@
  */
 
 #include <pthread.h>
+#include "state.h"
+#include "proxy.h"
 
 /**
  * @brief 屏幕宽度
@@ -20,10 +22,30 @@ int H = 0;
 /**
  * @brief 客户端连接套接字
  */
-
 int client_socket = -1;
+
+/**
+ * @brief 客户端状态
+ */
+ClientState client_state;
+
+/**
+ * @brief 当前选择的玩家，被 mutex_list 保护
+ */
+int selected = 0;
+
+/**
+ * @brief 用户名
+ */
+char userID[10] = "N/A";
 
 /**
  * @brief 屏幕刷新的互斥锁
  */
 pthread_mutex_t mutex_refresh = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_mutex_t mutex_list = PTHREAD_MUTEX_INITIALIZER;
+
+PlayerEntry *player_list = NULL;
+
+int nr_players = 0;

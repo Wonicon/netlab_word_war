@@ -83,5 +83,7 @@ void scene_welcome(void)
     }
     else {
         scene_register();
+        erase();
+        scene_login();
     }
 }

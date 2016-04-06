@@ -2,39 +2,13 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
+#include <proxy.h>
 #include "state.h"
-#include "proxy.h"
-
-pthread_mutex_t mutex_list = PTHREAD_MUTEX_INITIALIZER;
-
-#define MAKE_PTR(p, type) typeof(type) p = type
-
-PlayerEntry *player_list = NULL;
-
-size_t nr_players = 0;
+#include "lib/message.h"
 
 /**
- * @brief 一开始的齐全的在线用户列表
- *
- * TODO 每次更新整个表开销太大，应发送报文标记特定条目的更新删除
- */
-void handle_init_list(Response *msg)
-{
-    MAKE_PTR(p, &msg->list);
-
-    pthread_mutex_lock(&mutex_list);
-
-    nr_players = (size_t)p->nr_entry;
-    player_list = malloc(nr_players * sizeof(player_list[0]));
-    for (int i = 0; i < p->nr_entry; i++) {
-        read(client_socket, &player_list[i], sizeof(player_list[i]));
-    }
-
-    pthread_mutex_unlock(&mutex_list);
-}
-
-/**
- * @brief 获取服务器推送的信息
+ * @brief 获取服务器推送的信息，进行一部分状态转移
  *
  * 这是登陆后接收服务器报文的唯一入口。
  * 根据报文类型采取具体的处理函数，修改全局数据内容。
@@ -42,15 +16,77 @@ void handle_init_list(Response *msg)
  */
 void *push_service(void *arg)
 {
-    while (1) {
+    while (client_state != QUIT) {
         Response msg;
         read(client_socket, &msg, sizeof(msg));
-        switch (msg.type) {
-        case LIST_UPDATE: handle_init_list(&msg); break;
-        default: break;
+
+        // 检查是否是无阻塞的更新列表行为
+        if (msg.type == LOGIN_ANNOUNCE) {
+            pthread_mutex_lock(&mutex_list);
+            player_list = realloc(player_list, (size_t)(nr_players + 1));
+            strcpy(player_list[nr_players].userID, msg.account.id);
+            nr_players++;
+            pthread_mutex_unlock(&mutex_list);
+        }
+        else if (msg.type == LOGOUT_ANNOUNCE) {
+            pthread_mutex_lock(&mutex_list);
+            for (int i = 0; i < nr_players - 1; i++) {
+                if (!strcmp(player_list[i].userID, msg.account.id)) {
+                    player_list[i] = player_list[nr_players - 1];  // Erase the logging-out one.
+                }
+            }
+            nr_players--;
+            pthread_mutex_unlock(&mutex_list);
+        }
+
+        switch (client_state) {
+        case WAIT_REMOTE_CONFIRM:
+            if (msg.type == NO_BATTLE) {
+                client_state = IDLE;
+            }
+            else if (msg.type == YES_BATTLE) {
+                client_state = BATTLING;
+            }
+            break;
+        default: ;
         }
     }
 
+    return NULL;
+}
+
+/**
+ * @brief 获取用户输入的唯一入口，进行一部分状态转移
+ */
+void *user_input(void *arg)
+{
+    while (client_state != QUIT) {
+        int cmd = getch();
+        if (cmd == 'q') {
+            client_state = QUIT;
+        }
+
+        switch (client_state) {
+            case IDLE:
+                // 涉及 nr_players 的使用，上锁
+                // TODO 能否认为这样上锁能在数据被更新之前，选定屏幕上确定的玩家？会不会出现以为选了 A 但是实际处理了 B 的情况？
+                pthread_mutex_lock(&mutex_list);
+                if (cmd == KEY_UP && selected > 0) selected--;
+                else if (cmd == KEY_DOWN && selected < nr_players - 1) selected++;
+                else if (cmd == '\n') {
+                    send_invitation_msg();
+                    client_state = WAIT_REMOTE_CONFIRM;
+                }
+                pthread_mutex_unlock(&mutex_list);
+                break;
+            case WAIT_LOCAL_CONFIRM: break;
+            case BATTLING:
+                sleep(1);
+                client_state = IDLE;
+                break;
+            default: ;
+        }
+    }
     return NULL;
 }
 
@@ -62,31 +98,35 @@ void *push_service(void *arg)
 void *update_screen(void *arg)
 {
     WINDOW *wind = arg;
-    while (1) {
+    while (client_state != QUIT) {
         pthread_mutex_lock(&mutex_refresh);
         pthread_mutex_lock(&mutex_list);
+        werase(wind);
         if (player_list) {
             for (int i = 0; i < nr_players; i++) {
-                mvwprintw(wind, i, 0, "%s", player_list[i].userID);  // 这货也不是线程安全的！
+                // TODO 用颜色高亮
+                // TODO 并发粒度太大，选择卡顿
+                mvwprintw(wind, i, 0, "[%c] %s", (selected == i ? '*' : ' '), player_list[i].userID);
+                // 这货也不是线程安全的！
             }
         }
         wrefresh(wind);
         pthread_mutex_unlock(&mutex_list);
         pthread_mutex_unlock(&mutex_refresh);
     }
+    return NULL;
 }
 
 void *thread(void *arg)
 {
     WINDOW *wind = arg;
     int i = 0;
-    while (1) {
+    while (client_state != QUIT) {
         pthread_mutex_lock(&mutex_refresh);
-        mvwprintw(wind, 0, 0, "hello %d", i++);  // 这货也不是线程安全的！
+        mvwprintw(wind, 0, 0, "%s %d", (client_state == BATTLING ? "BATTLE" : "IDLE"),i++);  // 这货也不是线程安全的！
         wrefresh(wind);
         pthread_mutex_unlock(&mutex_refresh);
     }
-
     return NULL;
 }
 
@@ -95,6 +135,10 @@ void *thread(void *arg)
  */
 void scene_hall(void)
 {
+    init_pair(1, COLOR_WHITE, COLOR_BLUE);
+
+    client_state = IDLE;
+
     erase();
 
     getmaxyx(stdscr, H, W);
@@ -137,12 +181,25 @@ void scene_hall(void)
     WINDOW *win_info = newwin(    1, W - 2, H - 4, 1);
     WINDOW *win_help = newwin(    1, W - 2, H - 2, 1);
 
-    pthread_t tid;
-    pthread_create(&tid, NULL, push_service, NULL);
-    pthread_create(&tid, NULL, update_screen, win_list);
-    pthread_create(&tid, NULL, thread, win_info);
-    pthread_create(&tid, NULL, thread, win_help);
+    struct {
+        void *(*thread)(void *);
+        void *arg;
+        pthread_t tid;
+    } threads[] = {
+        { push_service, NULL },
+        { user_input, NULL },
+        { update_screen, win_list },
+        { thread, win_info },
+        { thread, win_help }
+    };
 
-    char ch;
-    while ((ch = getch()) != 'q') ;
+    for (int i = 0; i < sizeof(threads) / sizeof(threads[i]); i++) {
+        pthread_create(&threads[i].tid, NULL, threads[i].thread, threads[i].arg);
+    }
+
+    while (client_state != QUIT) ;
+
+    send_logout_msg();
+
+    sleep(1);
 }

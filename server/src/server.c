@@ -12,7 +12,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
-#include "proxy.h"
+#include <proxy.h>
 #include "func.h"
 
 /*
@@ -26,13 +26,13 @@ static int init_server(uint16_t port_no);
 static void *echo(void *arg);
 
 /*
- *全局数组，记录当前在线玩家的连接套接字
+ *全局数组，记录当前在线玩家的连接套接字，和当前在该连接上登录的用户ID
  */
 #define MAX_NUM_SOCKET 10
 struct socket_id_map sockfd[MAX_NUM_SOCKET];
 
 /*
- *根据用户ID查询用户在哪个连接上登录的
+ *根据用户ID查询用户在哪个连接上登录的,在玩家对战时需要知道用户ID在哪个套接字上登录的
  */
 static int query_sockfd(char *userID) {
 	int i;
@@ -41,8 +41,7 @@ static int query_sockfd(char *userID) {
 			return sockfd[i].sockfd;
 	}
 
-	if(i == MAX_NUM_SOCKET)
-		return -1;
+	return -1;
 }
 
 /**
@@ -64,11 +63,14 @@ int main(int argc, char *argv[])
     }
 
     int listen_sock = init_server((uint16_t)port_no);
+
 	int i;
 	for(i = 0; i < MAX_NUM_SOCKET; i++) {
 		sockfd[i].sockfd = -1;
 		memset(sockfd[i].userID,0,10);
 	}
+
+	//for(int i = 0; i < MAX_NUM_SOCKET; i++) sockfd[i] = -1;
 
     for(;;) {
         pthread_t tid;
@@ -80,7 +82,11 @@ int main(int argc, char *argv[])
 		for(i = 0; i < MAX_NUM_SOCKET; i++)
 			if(sockfd[i].sockfd == -1) {
 				sockfd[i].sockfd = connect_sock;
-				break;
+
+/*		for(int i = 0; i < MAX_NUM_SOCKET; i++)
+			if(sockfd[i] == -1) {
+				sockfd[i] = connect_sock;
+*/				break;
 			}
 
         pthread_create(&tid, NULL, echo, (void *)(long)connect_sock);
@@ -123,7 +129,6 @@ static int init_server(uint16_t port_no)
     return socket_fd;
 }
 
-
 /**
  * @brief 测试连接的简单线程
  * @param arg 实际上是连接套接字
@@ -132,36 +137,29 @@ static int init_server(uint16_t port_no)
 static void *echo(void *arg)
 {
     int fd = (int)(long)arg;  // 连接套接字
-    char buf[1024] = { 0 };
+    Request msg;
 
     printf("Connected on %d\n", fd);
 
     // 接收到 FIN 会退出
-	Request* q = (Request *)buf;
-    while (read(fd, buf, sizeof(buf))) {
-		//Request* q = (Request *)buf;
-		if(q->type == REGISTER)  //注册报文
-			handle_register(q->account.userID,q->account.passwd,fd);
-		else if(q->type == LOGIN) //登录报文
-			handle_login(q->account.userID,q->account.passwd,fd);
-		else if(q->type == LOGOUT) //退出报文
-			handle_logout(q->account.userID,fd);
-
-		else if(q->type == ASK_BATTLE) //请求对战
-			handle_askbattle(q->battle.srcID,q->battle.dstID,srcfd);
-		else if(q->type == YES_BATTLE) //答应对战
+    while (read(fd, &msg, sizeof(msg))) {
+		if(msg.type == REGISTER)  //注册报文
+			handle_register(msg.account.userID, msg.account.passwd, fd);
+		else if(msg.type == LOGIN) //登录报文
+			handle_login(msg.account.userID, msg.account.passwd, fd);
+		else if(msg.type == ASK_BATTLE) //请求对战
+			handle_askbattle(msg.battle.srcID, msg.battle.dstID, fd); //fd是邀战方的套接字
+		else if(msg.type == YES_BATTLE) //答应对战
+			handle_yesbattle(msg.battle.srcID, msg.battle.dstID, fd); //fd是应战方的套接字
+		else if(msg.type == NO_BATTLE) //拒绝对战
+			handle_nobattle(msg.battle.srcID, msg.battle.dstID, fd);  //fd是应战方的套接字
+		else if(msg.type == IN_BATTLE) //对战报文
 			;
-		else if(q->type == NO_BATTLE) //拒绝对战
+		else if(msg.type == END_BATTLE) //某一方血量为0，结束对战
 			;
-		else if(q->type == IN_BATTLE) //对战报文
-			;
-		else if(q->type == END_BATTLE) //某一方血量为0，结束对战
-			;
-        //printf("%s\n", buf);
-        //write(fd, "Hello", sizeof("Hello"));
     }
 
-	handle_logout(q->account.userID,fd);
+	handle_logout(msg.account.userID,fd);
     close(fd);
 
     printf("Close connection on %d\n", fd);
@@ -169,41 +167,23 @@ static void *echo(void *arg)
     return arg;
 }
 
-void handle_register(char *userID, char *passwd,int fd) {
-	Response ack;
-	if(insert_table(userID,passwd) == 0)
-		ack.type = REGISTER_ACK;
-	else 
-		ack.type = ID_CONFLICT;
-
-	ack.single.num = 1;
-	memset(ack.single.data,0,200);
-	//sprintf(ack.single.data,"%s%s",userID,passwd);
-	strncpy(ack.single.data,userID,9);
-	strncpy(ack.single.data + 9,"0",1);
-
-	send(fd,&ack,sizeof(Response),0);
+void handle_register(char *userID, char *password,int fd) {
+	Response ack = {
+			.type = (insert_table(userID, password) == 0) ? REGISTER_ACK : ID_CONFLICT,
+	};
+	send(fd, &ack, sizeof(ack), 0);
 }
 
 void handle_login(char *userID, char *passwd, int fd) {
-	Response ack;
-	memset(ack.single.data,0,200);
+	Response ack = { };
+	struct online_info q = { };
 
-	struct online_info q;
-	q.num = 0;
-	memset(q.data,0,200);
-
-	if(check_table(userID,passwd,&q) != NULL) {
-		//给该玩家发送登录确认的报文
-		ack.type = LOGIN_ACK;
-		ack.single.num = q.num;
-		strncpy(ack.single.data,q.data,200);
-		send(fd,&ack,sizeof(Response),0);
-
+	if(check_table(userID, passwd, &q) != NULL) {
 		//通知其他在线玩家有玩家上线
 		Response announce;
 		announce.type = LOGIN_ANNOUNCE,
-		announce.single.num = 0x01;
+
+		/*announce.single.num = 0x01;
 		strncpy(announce.single.data,userID,9);
 		strncpy(announce.single.data + 9,"1",1);
 
@@ -213,30 +193,102 @@ void handle_login(char *userID, char *passwd, int fd) {
 				send(sockfd[i].sockfd,&announce,sizeof(Response),0);
 			else if(sockfd[i].sockfd != -1 && sockfd[i].sockfd == fd)
 				strcpy(sockfd[i].userID,userID);
+		}*/
+
+		announce.account.num = 0x01;
+		strncpy(announce.account.id, userID, sizeof(announce.account.id) - 1);
+
+		for(int i = 0; i < MAX_NUM_SOCKET; i++) {
+			printf("%d %d\n", sockfd[i].sockfd, fd);
+			if (sockfd[i].sockfd != -1 && sockfd[i].sockfd != fd) {
+				send(sockfd[i].sockfd, &announce, sizeof(Response), 0);
+			}
 		}
+
+		//给该玩家发送登录确认的报文
+		ack.type = LOGIN_ACK;
+		ack.account.num = count_online() - 1;  // 去掉自己
+		printf("%s will receive %d entries\n", userID, ack.account.num);
+		send(fd, &ack, sizeof(Response), 0);
+		send_list(fd, userID);
+
 	}
 	else {
 		ack.type = LOGIN_ERROR;
-		send(fd,&ack,sizeof(Response),0);
+		send(fd, &ack, sizeof(Response), 0);
 	}
 }
 
-void handle_logout(char *userID,int fd) {
-	Response ack;
-	memset(ack.single.data,0,200);
+void handle_logout(char *userID, int fd) {
 
-	if(alter_table(userID,0) == 0) {
+	printf("LOGOUT: %s\n", userID);
+	if(alter_table(userID, 0) == 0) {
+		Response ack = { };
 		ack.type = LOGOUT_ANNOUNCE;
-		ack.single.num = 0x01;
-		strncpy(ack.single.data,userID,9);
-		strncpy(ack.single.data + 9,"0",1);
-		
-		int i;
-		for(i = 0; i < MAX_NUM_SOCKET; i++) {
-			if(sockfd[i].sockfd != -1 && sockfd[i].sockfd != fd)
-				send(sockfd[i].sockfd,&ack,sizeof(Response),0);
-			else if(sockfd[i].sockfd != -1 && sockfd[i].sockfd == fd)
+
+		ack.account.num = 0x01;
+		strncpy(ack.account.id, userID, sizeof(ack.account.id) - 1);
+
+		for(int i = 0; i < MAX_NUM_SOCKET; i++) {
+			if (sockfd[i].sockfd != -1 && sockfd[i].sockfd != fd)
+				send(sockfd[i].sockfd, &ack, sizeof(Response), 0);
+			else if (sockfd[i].sockfd == fd) {
+				sockfd[i].sockfd = -1;  // Release the slot.
 				memset(sockfd[i].userID,0,10);
+			}
 		}
+	}
+}
+
+void handle_askbattle(char *srcID, char *dstID, int srcfd) {
+	int dstfd = query_sockfd(dstID);
+	Response ack;
+	if(dstfd != -1) {
+		ack.type = ASK_BATTLE;
+		strcpy(ack.battle.srcID,srcID);
+		strcpy(ack.battle.dstID,dstID);
+		
+		send(dstfd, &ack, sizeof(Response),0);
+	}
+	else {
+		ack.type = BATTLE_ERROR;
+		printf("dst player %s is offline!\n",dstID);
+		send(srcfd, &ack, sizeof(Response),0);
+	}
+}
+
+void handle_yesbattle(char *srcID, char *dstID, int dstfd) {
+	int srcfd = query_sockfd(srcID);
+	Response ack;
+	if(srcfd != -1) {
+		ack.type = YES_BATTLE;
+		strcpy(ack.battle.srcID,srcID);
+		strcpy(ack.battle.dstID,dstID);
+
+		send(srcfd, &ack, sizeof(Response), 0);
+		//TO DO：修改数据库，向其他所有在线玩家发送这两个玩家进入对战状态
+		//TO DO：创建对战线程
+	}
+	else {
+		ack.type = BATTLE_ERROR;
+		printf("src player %s is offline!\n", srcID);
+		send(dstfd, &ack, sizeof(Response), 0);
+	}
+}
+
+void handle_nobattle(char *srcID, char *dstID, int dstfd) {
+	int srcfd = query_sockfd(srcID);
+	Response ack;
+	if(srcfd != -1) {
+		ack.type = NO_BATTLE;
+		strcpy(ack.battle.srcID,srcID);
+		strcpy(ack.battle.dstID,dstID);
+
+		send(srcfd, &ack, sizeof(Response),0);
+	}
+	else {
+		ack.type = BATTLE_ERROR;
+		printf("src player %s is offline!\n", srcID);
+		send(srcfd, &ack, sizeof(Response), 0);
 	}
 }

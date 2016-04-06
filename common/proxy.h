@@ -10,6 +10,9 @@
 
 /* 单个用户与服务器交互（注册、登录、退出）*/
 
+// 方便为没有名字的子子结构体构造指针
+#define MAKE_PTR(p, type) typeof(&type) p = &type
+
 //客户端报文类型
 #define REGISTER 0x01  //注册
 #define LOGIN 0x02     //登录
@@ -25,7 +28,6 @@
 #define LOGOUT_ANNOUNCE 0x07 //通知其他用户有用户下线
 #define BATTLE_ANNOUNCE 0x08 //通知其他用户有用户进入游戏状态
 
-//#define LOGOUT_ACK 0x04
 #define LIST_UPDATE 0x05  //更新列表
 
 //对战报文类型
@@ -34,6 +36,8 @@
 #define NO_BATTLE 0x30    //拒绝对战
 #define IN_BATTLE 0x40    //正在对战报文
 #define END_BATTLE 0x50   //某一方血量为0，对战结束
+
+#define BATTLE_ERROR 0x60 //发起请求时，对方玩家不在线或对方ID不存在等其他情况
 
 //对战招数
 #define STONE 0x01     //石头
@@ -68,9 +72,9 @@ typedef struct {
 	uint8_t type;
 	union {
 		struct {
-			uint8_t num;
-			char data[200];
-		} single;
+			int num;
+			char id[10];
+		} account;
 		struct {
 			char srcID[10];
 			char dstID[10];
@@ -79,15 +83,28 @@ typedef struct {
 			uint8_t srcHP;
 			uint8_t dstHP;
 		} battle;
-        // 列表更新报文，nr_entry 指示之后要接收多少个 PlayerEntry 结构体
+        // 列表创建报文，nr_entry 指示之后要接收多少个 PlayerEntry 结构体
         struct {
             int nr_entry;
         } list;
+        // 列表更新报文，表明列表变化内容
+        struct {
+#define LIST_ADD 1
+#define LIST_DEL 2
+#define LIST_RANK 3
+#define LIST_FRIEND 4
+            int change;
+            char userID[10];
+            int new_rank;
+        } list_chg;
 	};
 } Response;
 #pragma pack()
 
 #pragma pack(1)
+/**
+ * @brief 玩家列表条目的结构
+ */
 typedef struct {
 	char userID[10];  // 用户名
 	int rank;         // 排名

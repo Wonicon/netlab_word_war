@@ -65,10 +65,10 @@ int init_table () {
 
 	/* Create SQL statement */
     /* TODO 在已有数据库的情况下重复创建 table 会报错 */
-	sql = "CREATE TABLE PLAYER(" \
-		   "ID CHAR(20) NOT NULL," \
-		   "PASSWD CHAR(20) NOT NULL," \
-		   "STATE  INT NOT NULL);";
+	sql = "CREATE TABLE PLAYER("
+		  "ID CHAR(20) NOT NULL,"
+		  "PASSWD CHAR(20) NOT NULL,"
+		  "STATE  INT NOT NULL);";
 
 	/* Execute SQL statement */
 	rc = sqlite3_exec(db,sql,callback,0,&zErrMsg);
@@ -219,7 +219,6 @@ int alter_table(char *userID, int status) {
 	if(rc) {
 		fprintf(stderr,"Can't open database in alter_table: %s\n",sqlite3_errmsg(db));
 		exit(0);
-	
 	}
 	else
 		fprintf(stdout,"Opened database successfully in alter_table!\n");
@@ -239,3 +238,55 @@ int alter_table(char *userID, int status) {
 	return 0;
 }
 
+#include <unistd.h>
+#include <proxy.h>
+
+int count_online(void)
+{
+	const char sql[] = "SELECT COUNT(*) FROM PLAYER WHERE STATE = 1";
+	sqlite3 *db;
+	sqlite3_open(TABLE_NAME, &db);
+	sqlite3_exec(db, sql, NULL, NULL, NULL);
+	sqlite3_stmt *stmt;
+	sqlite3_prepare_v2(db, sql, sizeof(sql) - 1, &stmt, NULL);
+	sqlite3_step(stmt);
+	int n = sqlite3_column_int(stmt, 0);
+	sqlite3_step(stmt);
+	return n;
+}
+
+typedef struct {
+	int socket_fd;
+	char username[10];
+} ConnectionInfo;
+
+//登陆时调用，发送所有在线用户
+static int send_list_entry_callback(void *p, int argc, char **argv, char **col_name)
+{
+	ConnectionInfo *u = p;
+	for (int i = 0; i < argc; i++) {
+		if (strcmp(u->username, argv[i])) {
+			PlayerEntry entry = {};
+			strncpy(entry.userID, argv[i], sizeof(entry.userID) - 1);
+			write(u->socket_fd, &entry, sizeof(entry));
+		}
+	}
+	return 0;
+}
+
+/**
+ * @brief 查询数据库，逐个发送用户信息给新登陆的用户
+ * @param connection 连接套接字
+ * @return 发送的数目
+ */
+int send_list(int socket_fd, char username[])
+{
+	const char sql[] = "SELECT ID FROM PLAYER WHERE STATE = 1";
+	sqlite3 *db;
+	sqlite3_open(TABLE_NAME, &db);
+
+	ConnectionInfo info = { .socket_fd = socket_fd };
+	strncpy(info.username, username, sizeof(info.username) - 1);
+	sqlite3_exec(db, sql, send_list_entry_callback, &info, NULL);
+	return 0;
+}
