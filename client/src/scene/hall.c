@@ -29,7 +29,14 @@ void *push_service(void *arg)
             pthread_mutex_unlock(&mutex_list);
         }
         else if (msg.type == LOGOUT_ANNOUNCE) {
-            // TODO
+            pthread_mutex_lock(&mutex_list);
+            for (int i = 0; i < nr_players - 1; i++) {
+                if (!strcmp(player_list[i].userID, msg.account.id)) {
+                    player_list[i] = player_list[nr_players - 1];  // Erase the logging-out one.
+                }
+            }
+            nr_players--;
+            pthread_mutex_unlock(&mutex_list);
         }
 
         switch (client_state) {
@@ -94,6 +101,7 @@ void *update_screen(void *arg)
     while (client_state != QUIT) {
         pthread_mutex_lock(&mutex_refresh);
         pthread_mutex_lock(&mutex_list);
+        werase(wind);
         if (player_list) {
             for (int i = 0; i < nr_players; i++) {
                 // TODO 用颜色高亮
