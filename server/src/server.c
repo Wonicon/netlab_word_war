@@ -173,39 +173,44 @@ void handle_login(char *userID, char *passwd, int fd) {
 
 	if(check_table(userID, passwd, &q) != NULL) {
 		// 只持续维护登陆连接
+		int is_inserted = 0;
 		for(int i = 0; i < MAX_NUM_SOCKET; i++) {
 			if (sockfd[i].sockfd == -1) {
 				sockfd[i].sockfd = fd;
 				strncpy(sockfd[i].userID, userID, sizeof(sockfd[i].userID) - 1);
+				is_inserted = 1;
 				break;
 			}
 		}
 
-		//通知其他在线玩家有玩家上线
-		Response announce;
-		announce.type = LOGIN_ANNOUNCE,
+		if (is_inserted) {
+			//通知其他在线玩家有玩家上线
+			Response announce;
+			announce.type = LOGIN_ANNOUNCE,
 
-		announce.account.num = 0x01;
-		strncpy(announce.account.id, userID, sizeof(announce.account.id) - 1);
+					announce.account.num = 0x01;
+			strncpy(announce.account.id, userID, sizeof(announce.account.id) - 1);
 
-		for(int i = 0; i < MAX_NUM_SOCKET; i++) {
-			printf("%d %d\n", sockfd[i].sockfd, fd);
-			if (sockfd[i].sockfd != -1 && sockfd[i].sockfd != fd) {
-				send(sockfd[i].sockfd, &announce, sizeof(Response), 0);
+			for(int i = 0; i < MAX_NUM_SOCKET; i++) {
+				printf("%d %d\n", sockfd[i].sockfd, fd);
+				if (sockfd[i].sockfd != -1 && sockfd[i].sockfd != fd) {
+					send(sockfd[i].sockfd, &announce, sizeof(Response), 0);
+				}
 			}
-		}
 
-		//给该玩家发送登录确认的报文
-		ack.type = LOGIN_ACK;
-		ack.account.num = count_online() - 1;  // 去掉自己
-		printf("%s will receive %d entries\n", userID, ack.account.num);
-		send(fd, &ack, sizeof(Response), 0);
-		send_list(fd, userID);
+			//给该玩家发送登录确认的报文
+			ack.type = LOGIN_ACK;
+			ack.account.num = count_online() - 1;  // 去掉自己
+			printf("%s will receive %d entries\n", userID, ack.account.num);
+			send(fd, &ack, sizeof(Response), 0);
+			send_list(fd, userID);
+
+			return;
+		}
 	}
-	else {
-		ack.type = LOGIN_ERROR;
-		send(fd, &ack, sizeof(Response), 0);
-	}
+
+	ack.type = LOGIN_ERROR;
+	send(fd, &ack, sizeof(Response), 0);
 }
 
 void handle_logout(char *userID, int fd) {
