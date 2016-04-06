@@ -256,7 +256,7 @@ void scene_hall(void)
     WINDOW *win_info = newwin(    1, W - 2, H - 4, 1);
     WINDOW *win_help = newwin(    1, W - 2, H - 2, 1);
 
-    wprintw(win_help, "q - quit");
+    wprintw(win_help, "logged in as %s | q: quit ", userID);
     wrefresh(win_help);
 
     // 更新循环
