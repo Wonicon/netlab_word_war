@@ -52,7 +52,7 @@ clean:
 	-@rm -f $(SERVER).bin 2> /dev/null
 
 server:
-	./$(SERVER) $(PORT)
+	./$(SERVER).bin $(PORT)
 
 client:
 	./$(CLIENT).bin 127.0.0.1 $(PORT)
