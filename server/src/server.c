@@ -13,7 +13,6 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <proxy.h>
-#include "proxy.h"
 #include "func.h"
 
 /*
@@ -52,9 +51,7 @@ int main(int argc, char *argv[])
     }
 
     int listen_sock = init_server((uint16_t)port_no);
-	int i;
-	for(i = 0; i < MAX_NUM_SOCKET; i++)
-		sockfd[i] = -1;
+	for(int i = 0; i < MAX_NUM_SOCKET; i++) sockfd[i] = -1;
 
     for(;;) {
         pthread_t tid;
@@ -62,8 +59,7 @@ int main(int argc, char *argv[])
         struct sockaddr_in addr;
         int connect_sock = accept(listen_sock, (struct sockaddr *)&addr, &sock_len);
 
-		int i;
-		for(i = 0; i < MAX_NUM_SOCKET; i++)
+		for(int i = 0; i < MAX_NUM_SOCKET; i++)
 			if(sockfd[i] == -1) {
 				sockfd[i] = connect_sock;
 				break;
@@ -157,6 +153,7 @@ void handle_login(char *userID, char *passwd, int fd) {
 		strncpy(announce.account.id, userID, sizeof(announce.account.id) - 1);
 
 		for(int i = 0; i < MAX_NUM_SOCKET; i++) {
+			printf("%d %d\n", sockfd[i], fd);
 			if (sockfd[i] != -1 && sockfd[i] != fd) {
 				send(sockfd[i], &announce, sizeof(Response), 0);
 			}
@@ -175,7 +172,7 @@ void handle_login(char *userID, char *passwd, int fd) {
 	}
 }
 
-void handle_logout(char *userID,int fd) {
+void handle_logout(char *userID, int fd) {
 
 	printf("LOGOUT: %s\n", userID);
 	if(alter_table(userID, 0) == 0) {
@@ -184,8 +181,12 @@ void handle_logout(char *userID,int fd) {
 		ack.account.num = 0x01;
 		strncpy(ack.account.id, userID, sizeof(ack.account.id) - 1);
 
-		for(int i = 0; i < MAX_NUM_SOCKET; i++)
-			if(sockfd[i] != -1 && sockfd[i] != fd)
-				send(sockfd[i],&ack,sizeof(Response),0);
+		for(int i = 0; i < MAX_NUM_SOCKET; i++) {
+			if (sockfd[i] != -1 && sockfd[i] != fd)
+				send(sockfd[i], &ack, sizeof(Response), 0);
+			else if (sockfd[i] == fd) {
+				sockfd[i] = -1;  // Release the slot.
+			}
+		}
 	}
 }
