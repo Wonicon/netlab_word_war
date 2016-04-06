@@ -37,6 +37,8 @@
 #define IN_BATTLE 0x40    //正在对战报文
 #define END_BATTLE 0x50   //某一方血量为0，对战结束
 
+#define BATTLE_ERROR 0x60 //发起请求时，对方玩家不在线或对方ID不存在等其他情况
+
 //对战招数
 #define STONE 0x01     //石头
 #define SCISSOR 0x02   //剪刀
