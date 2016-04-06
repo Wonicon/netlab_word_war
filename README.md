@@ -23,10 +23,7 @@
 ```
 # Terminal 1
 $ ./server.bin 127.0.0.1 4000
-Connected on ??
-hello
-Close connection on ??
 
 # Terminal 2
-$ echo "hello" | ./client.bin 127.0.0.1 4000
+$ ./client.bin 127.0.0.1 4000
 ```
