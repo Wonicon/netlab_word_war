@@ -71,8 +71,8 @@ typedef struct {
 	union {
 		struct {
 			int num;
-			char data[200];
-		} single;
+			char id[10];
+		} account;
 		struct {
 			char srcID[10];
 			char dstID[10];
