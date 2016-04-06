@@ -70,7 +70,7 @@ typedef struct {
 	uint8_t type;
 	union {
 		struct {
-			uint8_t num;
+			int num;
 			char data[200];
 		} single;
 		struct {
