@@ -65,5 +65,4 @@ int main(int argc, char *argv[])
 
     echo();
     endwin();
-    close(client_socket);
 }

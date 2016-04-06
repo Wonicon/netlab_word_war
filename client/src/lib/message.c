@@ -18,14 +18,11 @@
 void handle_init_list(int n)
 {
     pthread_mutex_lock(&mutex_list);
-    FILE *logfile = fopen("user.log", "a");
     nr_players = n;
     player_list = malloc(nr_players * sizeof(player_list[0]));
     for (int i = 0; i < n; i++) {
-        fprintf(logfile, "hit\n");
         read(client_socket, &player_list[i], sizeof(player_list[i]));
     }
-    fclose(logfile);
     pthread_mutex_unlock(&mutex_list);
 }
 
@@ -70,7 +67,7 @@ void send_logout_msg(void)
     strcpy(request.account.userID, userID);
 
     // Send logout request
-    write(client_state, &request, sizeof(request));
+    write(client_socket, &request, sizeof(request));
 }
 
 /**
@@ -120,3 +117,17 @@ int send_register_msg(char username[], char password[])
      // Send request
      write(client_socket, &msg, sizeof(msg));
  }
+
+/**
+ * @brief 发送确认对战要求的报文
+ */
+void send_battle_ack(const char src[])
+{
+    // Construct yes
+    Request msg = { .type = YES_BATTLE };
+    strncpy(msg.battle.dstID, userID, sizeof(msg.battle.dstID));
+    strncpy(msg.battle.srcID, src, sizeof(msg.battle.srcID));
+
+    // Send yes
+    write(client_socket, &msg, sizeof(msg));
+}

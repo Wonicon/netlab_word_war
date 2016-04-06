@@ -7,7 +7,6 @@
 
 #include <pthread.h>
 #include "state.h"
-#include "proxy.h"
 
 /**
  * @brief 屏幕宽度
@@ -38,11 +37,6 @@ int selected = 0;
  * @brief 用户名
  */
 char userID[10] = "N/A";
-
-/**
- * @brief 屏幕刷新的互斥锁
- */
-pthread_mutex_t mutex_refresh = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_mutex_t mutex_list = PTHREAD_MUTEX_INITIALIZER;
 
