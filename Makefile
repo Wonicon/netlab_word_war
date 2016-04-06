@@ -42,15 +42,23 @@ $(TEMP)/$(SERVER)/%.o: $(SERVER)/%.c
 
 -include $(SERVER_DEP)
 
-.PHONY: clean
+.PHONY: clean server client gdbserver debug
+
+PORT := 1111
 
 clean:
 	-@rm -rf $(TEMP) 2> /dev/null
 	-@rm -f $(CLIENT).bin 2> /dev/null
 	-@rm -f $(SERVER).bin 2> /dev/null
 
+server:
+	./$(SERVER) $(PORT)
+
+client:
+	./$(CLIENT).bin 127.0.0.1 $(PORT)
+
 gdbserver:
-	gdbserver :5000 $(CLIENT).bin 127.0.0.1 1111
+	gdbserver :5000 $(CLIENT).bin 127.0.0.1 $(PORT)
 
 GDB_FLAGS += -ex "set print pretty on"
 GDB_FLAGS += -ex "symbol-file $(CLIENT).bin"
