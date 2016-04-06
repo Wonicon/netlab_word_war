@@ -7,6 +7,13 @@ struct online_info {
 	char data[200];
 };
 
+//记录套接字描述符和在该连接上登录的用户的ID
+struct socket_id_map {
+	int sockfd;
+	char userID[10];
+};
+
+int init_table();
 int insert_table(char *userID, char *passwd);
 struct online_info *check_table(char *userID, char *passwd, struct online_info *q);
 int alter_table(char *userId,int status);
@@ -16,4 +23,8 @@ int count_online(void);
 void handle_register(char *userID, char *passwd,int fd);
 void handle_login(char *userID, char *passwd,int fd);
 void handle_logout(char *userID,int status);
+
+void handle_askbattle(char *srcID,char *dstID,int srcfd);
+void handle_yesbattle(char *srcID,char *dstID,int dstfd);
+void handle_nobattle(char *srcID, char *dstID,int dstfd);
 #endif

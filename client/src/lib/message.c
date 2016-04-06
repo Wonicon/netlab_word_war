@@ -18,14 +18,11 @@
 void handle_init_list(int n)
 {
     pthread_mutex_lock(&mutex_list);
-    FILE *logfile = fopen("user.log", "a");
     nr_players = n;
     player_list = malloc(nr_players * sizeof(player_list[0]));
     for (int i = 0; i < n; i++) {
-        fprintf(logfile, "hit\n");
         read(client_socket, &player_list[i], sizeof(player_list[i]));
     }
-    fclose(logfile);
     pthread_mutex_unlock(&mutex_list);
 }
 

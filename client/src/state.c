@@ -39,11 +39,6 @@ int selected = 0;
  */
 char userID[10] = "N/A";
 
-/**
- * @brief 屏幕刷新的互斥锁
- */
-pthread_mutex_t mutex_refresh = PTHREAD_MUTEX_INITIALIZER;
-
 pthread_mutex_t mutex_list = PTHREAD_MUTEX_INITIALIZER;
 
 PlayerEntry *player_list = NULL;
