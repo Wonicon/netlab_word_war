@@ -2,6 +2,8 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
+#include <proxy.h>
 #include "state.h"
 #include "lib/message.h"
 
@@ -17,6 +19,18 @@ void *push_service(void *arg)
     while (client_state != QUIT) {
         Response msg;
         read(client_socket, &msg, sizeof(msg));
+
+        // 检查是否是无阻塞的更新列表行为
+        if (msg.type == LOGIN_ANNOUNCE) {
+            pthread_mutex_lock(&mutex_list);
+            player_list = realloc(player_list, (size_t)(nr_players + 1));
+            strcpy(player_list[nr_players].userID, msg.account.id);
+            nr_players++;
+            pthread_mutex_unlock(&mutex_list);
+        }
+        else if (msg.type == LOGOUT_ANNOUNCE) {
+            // TODO
+        }
 
         switch (client_state) {
         case WAIT_REMOTE_CONFIRM:
