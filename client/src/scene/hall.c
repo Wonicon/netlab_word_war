@@ -78,10 +78,11 @@ void *push_service(void *arg)
             if (msg.type == ASK_BATTLE) {
                 client_state = WAIT_LOCAL_CONFIRM;
                 pthread_mutex_lock(&info_bar.mutex);
-                snprintf(info_bar.buf, info_bar.len, "%s asks for battling (y for yes, n for no):)%n",
-                         msg.account.id, &info_bar.cursor_y);
+                snprintf(info_bar.buf, info_bar.len, "%s asks for battling (y for yes, n for no)%n",
+                         msg.battle.srcID, &info_bar.cursor_y);
                 pthread_mutex_unlock(&info_bar.mutex);
                 move(H - 4, info_bar.cursor_y);  // TODO Ugly
+                curs_set(2);
                 echo();
             }
         // 等待对战请求响应，忽视其他报文，TODO 拒绝新的对战请求
