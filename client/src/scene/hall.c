@@ -221,6 +221,7 @@ void *user_input(void *arg)
                 // 更新 info bar
                 update_info(1, "battling with %s, type x, y, z", rival.id);
                 // 状态转移
+                increase_info_level();
                 client_state = BATTLING;
             }
             else if (cmd == 'n') {
@@ -258,7 +259,7 @@ void *user_input(void *arg)
                 strcpy(r.msg.srcID, userID);
                 write(client_socket, &r, sizeof(r));
                 write(client_socket, msg, r.msg.len);
-                update_info(0, "sent");
+                update_info(1, "sent");
             }
             default: attack_type = 0;
             }

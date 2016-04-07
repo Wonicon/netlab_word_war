@@ -117,6 +117,14 @@ static int init_server(uint16_t port_no)
     return socket_fd;
 }
 
+static void send_message(int fd, const char *msg, const char *sender)
+{
+	Response r = { .type = MESSAGE, .msg.len = (uint8_t)strlen(msg) };
+	strcpy(r.msg.srcID, sender);
+	if (write(fd, &r, sizeof(r)) != sizeof(r)) perror("Send message header");   // 告知类型、来源和长度
+	if (write(fd, msg, r.msg.len) != r.msg.len) perror("Send message body");  // 变长字符串
+}
+
 /**
  * @brief 测试连接的简单线程
  * @param arg 实际上是连接套接字
@@ -164,10 +172,7 @@ static void *echo(void *arg)
 			// 转发 TODO 上锁？
 			for (int i = 0; i < MAX_NUM_SOCKET; i++) {
 				if (!strcmp(sockfd[i].userID, msg.msg.dstID)) {
-					Response r = { .type = MESSAGE, .msg.len = msg.msg.len };
-					strcpy(r.msg.srcID, msg.msg.srcID);
-					write(sockfd[i].sockfd, &r, sizeof(r));  // 告知类型、来源和长度
-					write(sockfd[i].sockfd, text, r.msg.len);  // 变长字符串
+					send_message(sockfd[i].sockfd, text, msg.msg.srcID);
 				}
 			}
 		}
@@ -370,20 +375,20 @@ void *battle(void *argc) {
 	//当双方血量都不为0时，持续进行多轮对战
 	uint8_t battle_state = IN_BATTLE;
 	while(battle_state == IN_BATTLE) {
-		//计时，等待两个玩家出招，暂时仅用一个time_count变量来计数
-		unsigned long int time_count = 0;
-
-		while(!(sockfd[srcpos].state == 1 && sockfd[dstpos].state == 1)) {
-			time_count++;
-#if 0
-            // TODO 超时处理对客户端的状态转移不利
-			if(time_count == TIME_OUT)
-				break;
-#endif
+		// TODO 超时处理对客户端的状态转移不利，暂不实现
+		while(!(sockfd[srcpos].state >= 1 && sockfd[dstpos].state >= 1)) {
+			if (sockfd[srcpos].state == 1 && sockfd[dstpos].state == 0) {
+				send_message(dstfd, "Don't let your rival wait", "server");
+				sockfd[srcpos].state++;
+			}
+			if (sockfd[srcpos].state == 0 && sockfd[dstpos].state == 1) {
+				send_message(srcfd, "Don't let your rival wait", "server");
+				sockfd[dstpos].state++;
+			}
 		}
 
 		//如果超时
-		if(time_count == TIME_OUT) {
+		if(0) {
 			printf("timeout\n");
 			//双方同时掉线，HP减1是为了防止对战线程一直在空等待
 			if(sockfd[srcpos].state == 0 && sockfd[dstpos].state == 0) {

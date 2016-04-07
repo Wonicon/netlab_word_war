@@ -73,7 +73,7 @@ void decrease_info_level(void)
 {
     pthread_mutex_lock(&info.mutex);
     info.level--;
-    pthread_mutex_lock(&info.mutex);
+    pthread_mutex_unlock(&info.mutex);
 }
 
 void init_info(int w)
@@ -91,7 +91,7 @@ void update_info(int level, const char *fmt, ...)
         vsnprintf(info.buf, info.len, fmt, args);
         va_end(args);
     }
-    pthread_mutex_lock(&info.mutex);
+    pthread_mutex_unlock(&info.mutex);
 }
 
 const char *get_info(void)
