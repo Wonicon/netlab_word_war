@@ -361,13 +361,18 @@ void *battle(void *argc) {
 	sockfd[dstpos].HP = INIT_HP;
 
 	//当双方血量都不为0时，持续进行多轮对战
-	while(sockfd[srcpos].HP != 0 && sockfd[dstpos].HP != 0) {
+	uint8_t battle_state = IN_BATTLE;
+	while(battle_state == IN_BATTLE) {
 		//计时，等待两个玩家出招，暂时仅用一个time_count变量来计数
 		unsigned long int time_count = 0;
+
 		while(!(sockfd[srcpos].state == 1 && sockfd[dstpos].state == 1)) {
 			time_count++;
+#if 0
+            // TODO 超时处理对客户端的状态转移不利
 			if(time_count == TIME_OUT)
 				break;
+#endif
 		}
 
 		//如果超时
@@ -416,9 +421,14 @@ void *battle(void *argc) {
 
 		}
 
-		//一轮处理完毕,发送结果，并为下一轮对战做准备
+
+		if (sockfd[srcpos].HP == 0 || sockfd[dstpos].HP == 0) {
+			battle_state = END_BATTLE;
+		}
+
+			//一轮处理完毕,发送结果，并为下一轮对战做准备
 		Response srcack = {
-			.type = IN_BATTLE,
+			.type = battle_state,
 			.battle.result = sockfd[srcpos].result,
 			.battle.srcattack = sockfd[srcpos].attack,
 			.battle.dstattack = sockfd[dstpos].attack,
@@ -429,7 +439,7 @@ void *battle(void *argc) {
 		strcpy(srcack.battle.dstID, sockfd[dstpos].userID);
 
 		Response dstack = {
-			.type = IN_BATTLE,
+			.type = battle_state,
 			.battle.result = sockfd[dstpos].result,
 			.battle.srcattack = sockfd[dstpos].attack,
 			.battle.dstattack = sockfd[srcpos].attack,
@@ -439,32 +449,11 @@ void *battle(void *argc) {
 		strcpy(dstack.battle.srcID, sockfd[dstpos].userID);
 		strcpy(dstack.battle.dstID, sockfd[srcpos].userID);
 
-		send(sockfd[srcpos].sockfd,&srcack,sizeof(Response),0);
-		send(sockfd[dstpos].sockfd,&dstack,sizeof(Response),0);
+		send(sockfd[srcpos].sockfd, &srcack, sizeof(Response), 0);
+		send(sockfd[dstpos].sockfd, &dstack, sizeof(Response), 0);
 
 		sockfd[srcpos].state = 0;
 		sockfd[dstpos].state = 0;
 	}
-
-	//有一方血量为0，发送结束报文
-	Response srcendack = {
-		.type = END_BATTLE,
-		.battle.srcHP = sockfd[srcpos].HP,
-		.battle.dstHP = sockfd[dstpos].HP
-	};
-	strcpy(srcendack.battle.srcID, sockfd[srcpos].userID);
-	strcpy(srcendack.battle.dstID, sockfd[dstpos].userID);
-
-	Response dstendack = {
-		.type = END_BATTLE,
-		.battle.srcHP = sockfd[dstpos].HP,
-		.battle.dstHP = sockfd[srcpos].HP
-	};
-	strcpy(dstendack.battle.srcID, sockfd[dstpos].userID);
-	strcpy(dstendack.battle.dstID, sockfd[srcpos].userID);
-
-	send(sockfd[srcpos].sockfd,&srcendack,sizeof(Response),0);
-	send(sockfd[dstpos].sockfd,&dstendack,sizeof(Response),0);
-
 	return argc;
 }

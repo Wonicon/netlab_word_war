@@ -92,12 +92,46 @@ void *push_service(void *arg)
             }
             break;
         case WAIT_RESULT:
-            if (msg.type == IN_BATTLE) {
+            // 根据服务器的裁决采取行动
+            if (msg.type == IN_BATTLE || msg.type == END_BATTLE) {
                 me.hp = msg.battle.srcHP;
                 rival.hp = msg.battle.dstHP;
-                snprintf(info_bar.buf, info_bar.len, "battling with %s, type x, y, z", rival.id);
+                // 打印战果
+                if (msg.battle.result == TIE) {
+                    snprintf(info_bar.buf, info_bar.len,
+                             "%s using %d ties %s using %d\n",
+                             msg.battle.srcID, msg.battle.srcattack,
+                             msg.battle.dstID, msg.battle.dstattack);
+                }
+                else if (msg.battle.result == WIN) {
+                    snprintf(info_bar.buf, info_bar.len,
+                             "%s using %d wins %s using %d\n",
+                             msg.battle.srcID, msg.battle.srcattack,
+                             msg.battle.dstID, msg.battle.dstattack);
+                }
+                else if (msg.battle.result == FAIL) {
+                    snprintf(info_bar.buf, info_bar.len,
+                             "%s using %d wins %s using %d\n",
+                             msg.battle.dstID, msg.battle.dstattack,
+                             msg.battle.srcID, msg.battle.srcattack);
+                }
+                else {
+                    snprintf(info_bar.buf, info_bar.len, "WTF");
+                }
                 client_state = BATTLING;
             }
+
+            if (msg.type == END_BATTLE) {
+                sleep(1);
+                if (msg.battle.result == WIN) {
+                    snprintf(info_bar.buf, info_bar.len, "you have won %s", msg.battle.dstID);
+                }
+                else {
+                    snprintf(info_bar.buf, info_bar.len, "you have been beaten by %s", msg.battle.dstID);
+                }
+                client_state = IDLE;
+            }
+            break;
         default: ;
         }
     }
