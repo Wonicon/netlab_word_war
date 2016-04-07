@@ -43,3 +43,8 @@ pthread_mutex_t mutex_list = PTHREAD_MUTEX_INITIALIZER;
 PlayerEntry *player_list = NULL;
 
 int nr_players = 0;
+
+/**
+ * @brief 帮助窗口显示使能
+ */
+int help_window_en = 0;

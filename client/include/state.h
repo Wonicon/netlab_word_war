@@ -31,4 +31,6 @@ extern PlayerEntry *player_list;
 
 extern int nr_players;
 
+extern int help_window_en;
+
 #endif

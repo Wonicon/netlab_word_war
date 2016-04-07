@@ -186,8 +186,13 @@ void *user_input(void *arg)
 {
     while (client_state != QUIT) {
         int cmd = getch();
+
+        // 对简单命令进行处理
         if (cmd == 'q') {
             client_state = QUIT;
+        }
+        else if (cmd == 'h') {
+            help_window_en = !help_window_en;  // flip-flop
         }
 
         switch (client_state) {
@@ -276,6 +281,30 @@ void draw_battle_screen(WINDOW *wind)
     for (int i = 0;  i < me.hp; i++) mvwprintw(wind, h - 1, i, "#");
 }
 
+
+/**
+ * @brief 向标准屏幕输出帮助信息
+ * @param file 帮助文件的文件名
+ * @param wind 窗口 // TODO 权宜之计，直接写标准屏会刷掉边框
+ */
+static void draw_help(const char *filename, WINDOW *window)
+{
+    werase(window);
+    FILE *help_text = fopen(filename, "r");  // 帮助文本
+    if (help_text != NULL) {
+        char line_buf[1024];
+        while (fgets(line_buf, sizeof(line_buf), help_text)) {
+            wprintw(window, "%s", line_buf);
+        }
+        fclose(help_text);
+    }
+    else {
+        wprintw(window, "ERROR: help file '%s' cannot find", filename);
+    }
+    wrefresh(window);
+}
+
+
 /**
  * @brief 游戏大厅界面，显示在线玩家名单，排名，通知，提供选择交互功能
  */
@@ -361,6 +390,10 @@ void scene_hall(void)
 
     // 更新循环
     while (client_state != QUIT) {
+        if (help_window_en) {
+            draw_help("help.txt", win_list);
+            continue;
+        }
         werase(win_list);
         if ((client_state == IDLE || client_state == WAIT_LOCAL_CONFIRM || client_state == WAIT_REMOTE_CONFIRM) && player_list) {
             pthread_mutex_lock(&mutex_list);
