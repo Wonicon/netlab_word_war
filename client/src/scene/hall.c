@@ -72,12 +72,21 @@ void *push_service(void *arg)
             if (msg.type == ASK_BATTLE) {
                 client_state = WAIT_LOCAL_CONFIRM;
                 strncpy(rival.id, msg.battle.srcID, sizeof(rival.id));
-                snprintf(info_bar.buf, info_bar.len, "%s asks for battling (y for yes, n for no)", msg.battle.srcID);
+                pthread_mutex_lock(&mutex_list);
+                for (int i = 0;  i< nr_players; i++) {
+                    if (!strcmp(player_list[i].userID, rival.id)) {
+                        player_list[i].state = ENT_STATE_ASK;
+                        break;
+                    }
+                }
+                pthread_mutex_unlock(&mutex_list);
+                //snprintf(info_bar.buf, info_bar.len, "%s asks for battling (y for yes, n for no)", msg.battle.srcID);
             }
             break;
         // 等待对战请求响应，忽视其他报文，TODO 拒绝新的对战请求
         case WAIT_REMOTE_CONFIRM:
             if (msg.type == NO_BATTLE || msg.type == BATTLE_ERROR) {
+                snprintf(info_bar.buf, info_bar.len, "invitation for %s failed", msg.battle.dstID);
                 client_state = IDLE;
             }
             else if (msg.type == YES_BATTLE) {
@@ -90,8 +99,20 @@ void *push_service(void *arg)
                 // Update info bar
                 snprintf(info_bar.buf, info_bar.len, "battling with %s, type x, y, z", rival.id);
             }
+            else if (msg.type == ASK_BATTLE) {
+                send_no_battle(&msg);
+            }
+            break;
+        case WAIT_LOCAL_CONFIRM:
+        case BATTLING:
+            if (msg.type == ASK_BATTLE) {
+                send_no_battle(&msg);
+            }
             break;
         case WAIT_RESULT:
+            if (msg.type == ASK_BATTLE) {
+                send_no_battle(&msg);
+            }
             // 根据服务器的裁决采取行动
             if (msg.type == IN_BATTLE || msg.type == END_BATTLE) {
                 me.hp = msg.battle.srcHP;
@@ -308,7 +329,20 @@ void scene_hall(void)
             for (int i = 0; i < nr_players; i++) {
                 // TODO 用颜色高亮
                 // TODO 并发粒度太大，选择卡顿
-                mvwprintw(win_list, i, 0, "[%c] %s", (selected == i ? '*' : ' '), player_list[i].userID);
+
+                // 标志当前选中的 entry
+                char ch = (char)(selected == i ? '*' : ' ');
+
+                // 打印 entry 名，并根据状态进一步输出信息
+                if (player_list[i].state == ENT_STATE_ASK) {
+                    mvwprintw(win_list, i, 0, "[%c] %s asking for battle", ch, player_list[i].userID);
+                }
+                else if (player_list[i].state == ENT_STATE_BUSY) {
+                    mvwprintw(win_list, i, 0, "[%c] %s asking is battling", ch, player_list[i].userID);
+                }
+                else {
+                    mvwprintw(win_list, i, 0, "[%c] %s", ch, player_list[i].userID);
+                }
                 // 这货也不是线程安全的！
             }
             pthread_mutex_unlock(&mutex_list);

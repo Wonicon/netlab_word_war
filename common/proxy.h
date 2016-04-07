@@ -93,15 +93,17 @@ typedef struct {
 } Response;
 #pragma pack()
 
+#define ENT_STATE_ASK 0x01
+#define ENT_STATE_BUSY 0x02
 #pragma pack(1)
 /**
  * @brief 玩家列表条目的结构
  */
 typedef struct {
-	char userID[10];  // 用户名
-	int rank;         // 排名
-	int state;        // 状态（对战/空闲）
-    int is_friend;    // 与当前请求的玩家是否是好友
+	char userID[10];    // 用户名
+	uint8_t rank;       // 排名
+	uint8_t state;      // 状态（对战/空闲）
+	uint8_t is_friend;  // 与当前请求的玩家是否是好友
 } PlayerEntry;
 #pragma pack()
 

@@ -144,3 +144,12 @@ void send_attack_message(uint8_t type)
     };
     write(client_socket, &msg, sizeof(msg));
 }
+
+void send_no_battle(Response *ask)
+{
+    // 发送拒绝对战请求的报文，会发送给 src！
+    Request nobattle = { .type = NO_BATTLE };
+    strcpy(nobattle.battle.srcID, ask->battle.srcID);
+    strcpy(nobattle.battle.dstID, ask->battle.dstID);
+    write(client_socket, &nobattle, sizeof(nobattle));
+}

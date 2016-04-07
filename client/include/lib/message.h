@@ -1,6 +1,8 @@
 #ifndef LIB_MESSAGE_H
 #define LIB_MESSAGE_H
 
+#include "proxy.h"
+
 // 发送登陆请求，等待响应，返回是否登陆成功
 int send_login_msg(char username[], char password[]);
 
@@ -15,5 +17,7 @@ void send_logout_msg(void);
 void send_battle_ack(const char src[]);
 
 void send_attack_message(uint8_t type);
+
+void send_no_battle(Response *ask);
 
 #endif
