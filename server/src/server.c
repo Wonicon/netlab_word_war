@@ -254,13 +254,16 @@ void handle_askbattle(char *srcID, char *dstID, int srcfd) {
 		strcpy(ack.battle.srcID,srcID);
 		strcpy(ack.battle.dstID,dstID);
 		
-		send(dstfd, &ack, sizeof(Response),0);
+		if (send(dstfd, &ack, sizeof(Response),0) != -1) {
+			return;
+		}
+
+		// 进入这里说明在服务器发送了对战邀请报文后未响应前收到了目标的 FIN 以及退出。
+		// 此时也要通知请求方邀请失败，但是这种情况很难构建测试。
 	}
-	else {
-		ack.type = BATTLE_ERROR;
-		printf("dst player %s is offline!\n",dstID);
-		send(srcfd, &ack, sizeof(Response),0);
-	}
+	ack.type = BATTLE_ERROR;
+	printf("dst player %s is offline!\n",dstID);
+	send(srcfd, &ack, sizeof(Response),0);
 }
 
 void handle_yesbattle(char *srcID, char *dstID, int dstfd) {
