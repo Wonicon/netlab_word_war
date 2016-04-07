@@ -35,4 +35,8 @@ void handle_askbattle(char *srcID,char *dstID,int srcfd);
 void handle_yesbattle(char *srcID,char *dstID,int dstfd);
 void handle_nobattle(char *srcID, char *dstID,int dstfd);
 void *battle(void *argc);
+
+Response increase_lose(const char *user);
+Response increase_win(const char *user);
+
 #endif

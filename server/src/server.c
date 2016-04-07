@@ -373,6 +373,9 @@ void *battle(void *argc) {
 	sockfd[dstpos].HP = INIT_HP;
 
 	//当双方血量都不为0时，持续进行多轮对战
+
+	Response r = { .type = END_BATTLE_ANNOUNCE };
+
 	uint8_t battle_state = IN_BATTLE;
 	while(battle_state == IN_BATTLE) {
 		// TODO 超时处理对客户端的状态转移不利，暂不实现
@@ -436,9 +439,23 @@ void *battle(void *argc) {
 
 		if (sockfd[srcpos].HP == 0 || sockfd[dstpos].HP == 0) {
 			battle_state = END_BATTLE;
+			// 更新输赢，准备广播报文
+			Response src, dst;
+			if (sockfd[srcpos].HP == 0) {
+				src = increase_lose(sockfd[srcpos].userID);
+				dst = increase_win(sockfd[dstpos].userID);
+			}
+			else {
+				dst = increase_lose(sockfd[dstpos].userID);
+				src = increase_win(sockfd[srcpos].userID);
+			}
+			r.report.dst_win = dst.report.src_win;
+			r.report.dst_lose = dst.report.src_lose;
+			r.report.src_win = src.report.src_win;
+			r.report.src_lose = src.report.src_lose;
 		}
 
-			//一轮处理完毕,发送结果，并为下一轮对战做准备
+		//一轮处理完毕,发送结果，并为下一轮对战做准备
 		Response srcack = {
 			.type = battle_state,
 			.battle.result = sockfd[srcpos].result,
@@ -466,15 +483,16 @@ void *battle(void *argc) {
 
 		sockfd[srcpos].state = 0;
 		sockfd[dstpos].state = 0;
+	}
 
-		srcack.type = END_BATTLE_ANNOUNCE;
-		// TODO 对这个数组的访问是否需要上锁？
-		for (int i = 0; i < MAX_NUM_SOCKET; i++) {
-			int fd = sockfd[i].sockfd;
-			if (fd != -1 && fd != srcfd && fd != dstfd) {
-				printf("send end battle announce to %d\n", fd);
-				send(fd, &srcack, sizeof(srcack), 0);
-			}
+	strcpy(r.report.srcID, sockfd[srcpos].userID);
+	strcpy(r.report.dstID, sockfd[dstpos].userID);
+	// TODO 对这个数组的访问是否需要上锁？
+	for (int i = 0; i < MAX_NUM_SOCKET; i++) {
+		int fd = sockfd[i].sockfd;
+		if (fd != -1 && fd != srcfd && fd != dstfd) {
+			printf("send end battle announce to %s\n", sockfd[i].userID);
+			send(fd, &r, sizeof(r), 0);
 		}
 	}
 	return argc;

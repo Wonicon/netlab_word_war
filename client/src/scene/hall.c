@@ -54,20 +54,35 @@ void *push_service(void *arg)
 
             update_info(0, "%s logged out", msg.account.id);
         }
-        else if (msg.type == BATTLE_ANNOUNCE || msg.type == END_BATTLE_ANNOUNCE) {
+        else if (msg.type == BATTLE_ANNOUNCE) {
             pthread_mutex_lock(&mutex_list);
             // 使用 response.battle 根据两个 id 找到交战双方
             for (int i = 0; i < nr_players; i++) {
                 if (!strcmp(player_list[i].userID, msg.battle.srcID)) {
-                    if (msg.type == BATTLE_ANNOUNCE) player_list[i].state = ENT_STATE_BUSY;
-                    else if (msg.type == END_BATTLE_ANNOUNCE) player_list[i].state = 0;
+                    player_list[i].state = ENT_STATE_BUSY;
                     break;
                 }
             }
             for (int i = 0; i < nr_players; i++) {
                 if (!strcmp(player_list[i].userID, msg.battle.dstID)) {
-                    if (msg.type == BATTLE_ANNOUNCE) player_list[i].state = ENT_STATE_BUSY;
-                    else if (msg.type == END_BATTLE_ANNOUNCE) player_list[i].state = 0;
+                    player_list[i].state = ENT_STATE_BUSY;
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&mutex_list);
+        }
+        else if (msg.type == END_BATTLE_ANNOUNCE) {
+            pthread_mutex_lock(&mutex_list);
+            // 使用 response.report 根据两个 id 找到交战双方
+            for (int i = 0; i < nr_players; i++) {
+                if (!strcmp(player_list[i].userID, msg.report.srcID)) {
+                    player_list[i].state = 0;
+                    break;
+                }
+            }
+            for (int i = 0; i < nr_players; i++) {
+                if (!strcmp(player_list[i].userID, msg.report.dstID)) {
+                    player_list[i].state = 0;
                     break;
                 }
             }

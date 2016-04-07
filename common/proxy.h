@@ -100,6 +100,14 @@ typedef struct {
 		} battle;
 		struct {
 			char srcID[10];
+			char dstID[10];
+			uint8_t src_win;
+			uint8_t src_lose;
+			uint8_t dst_win;
+			uint8_t dst_lose;
+		} report;
+		struct {
+			char srcID[10];
 			uint8_t len;
 		} msg;
 	};

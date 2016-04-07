@@ -68,7 +68,10 @@ int init_table () {
 	sql = "CREATE TABLE PLAYER("
 		  "ID CHAR(20) NOT NULL,"
 		  "PASSWD CHAR(20) NOT NULL,"
-		  "STATE  INT NOT NULL);";
+		  "STATE  INT NOT NULL,"
+			"WIN INT NOT NULL,"
+			"LOSE INT NOT NULL"
+			");";
 
 	/* Execute SQL statement */
 	rc = sqlite3_exec(db,sql,callback,0,&zErrMsg);
@@ -113,7 +116,7 @@ int insert_table(char *userID,char *passwd) {
 	//没有相同的ID
 	if(num == 0) {
 		memset(sql,0,1024);
-		sprintf(sql,"INSERT INTO PLAYER (ID,PASSWD,STATE) VALUES('%s','%s',0)",userID,passwd);
+		sprintf(sql,"INSERT INTO PLAYER (ID,PASSWD,STATE,WIN,LOSE) VALUES('%s','%s',0,0,0)",userID,passwd);
 
 		rc = sqlite3_exec(db,sql,callback,0,&zErrMsg);
 		if(rc != SQLITE_OK) {
@@ -265,12 +268,10 @@ typedef struct {
 static int send_list_entry_callback(void *p, int argc, char **argv, char **col_name)
 {
 	ConnectionInfo *u = p;
-	for (int i = 0; i < argc; i++) {
-		if (strcmp(u->username, argv[i])) {
-			PlayerEntry entry = { .state = u->entry_state };
-			strncpy(entry.userID, argv[i], sizeof(entry.userID) - 1);
-			write(u->socket_fd, &entry, sizeof(entry));
-		}
+	if (strcmp(u->username, argv[0])) {
+		PlayerEntry entry = { .state = u->entry_state };
+		strncpy(entry.userID, argv[0], sizeof(entry.userID) - 1);
+		write(u->socket_fd, &entry, sizeof(entry));
 	}
 	return 0;
 }
@@ -295,4 +296,56 @@ int send_list(int socket_fd, char username[])
 	info.entry_state = ENT_STATE_BUSY;
 	sqlite3_exec(db, sql_battle, send_list_entry_callback, &info, NULL);
 	return 0;
+}
+
+
+static int send_new_win_lose(void *p, int argc, char **argv, char **col_name)
+{
+	Response *r = p;
+	int cmp_win = 1, cmp_lose = 1;  // 避免冗余比较
+	for (int i = 0; i < argc; i++) {
+		if (cmp_win && !strcmp(col_name[i], "WIN")) {
+			r->report.src_win = (uint8_t)atoi(argv[i]);
+			cmp_win = 0;
+		}
+		else if (cmp_lose && !strcmp(col_name[i], "LOSE")) {
+			r->report.src_lose = (uint8_t)atoi(argv[i]);
+			cmp_lose = 0;
+		}
+	}
+	return 0;
+}
+
+Response increase_win(const char *user)
+{
+	sqlite3 *db;
+	sqlite3_open(TABLE_NAME, &db);
+
+	char sql[1204] = { };
+	snprintf(sql, sizeof(sql) - 1, "UPDATE PLAYER SET WIN = WIN + 1, STATE = 1 WHERE ID = '%s'", user);
+	sqlite3_exec(db, sql, NULL, NULL, NULL);
+
+	Response r = { };
+
+	snprintf(sql, sizeof(sql) - 1, "SELECT WIN, LOSE FROM PLAYER WHERE ID = '%s'", user);
+	sqlite3_exec(db, sql, send_new_win_lose, &r, NULL);
+
+	return r;
+}
+
+Response increase_lose(const char *user)
+{
+	sqlite3 *db;
+	sqlite3_open(TABLE_NAME, &db);
+
+	char sql[1204] = { };
+	snprintf(sql, sizeof(sql) - 1, "UPDATE PLAYER SET LOSE = LOSE + 1, STATE = 1 WHERE ID = '%s'", user);
+	sqlite3_exec(db, sql, NULL, NULL, NULL);
+
+	Response r = { };
+
+	snprintf(sql, sizeof(sql) - 1, "SELECT WIN, LOSE FROM PLAYER WHERE ID = '%s'", user);
+	sqlite3_exec(db, sql, send_new_win_lose, &r, NULL);
+
+	return r;
 }
