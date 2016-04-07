@@ -1,0 +1,23 @@
+Word War - Help Window
+
+// Common command
+
+q          - quit the program
+h          - show this window or leave from it
+
+up arrow   - move '*' upward
+down arrow - move '*' downward
+
+enter      - invite the player marked with '*'
+
+// When invited
+
+y          - acknowledge
+n          - refuse
+
+// When playing game
+
+x          - stone
+y          - scissor
+z          - paper
+
