@@ -49,3 +49,11 @@ void bubble_sort(PlayerEntry list[], int n, int method)
         }
     }
 }
+
+const char *get_method(int t)
+{
+    if (t == STONE) return "stone";
+    else if (t == SCISSOR) return "scissor";
+    else if (t == PAPER) return "paper";
+    else return "N/A";
+}

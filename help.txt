@@ -7,9 +7,9 @@ down - move '*' downward
 enter - invite the player marked with '*'
 y - acknowledge
 n - refuse
-x - stone
-y - scissor
-z - paper
+1 - stone
+2 - scissor
+3 - paper
 w - sort by win, ascending
 l - sort by lose, ascending
 : - message on battle

@@ -46,9 +46,9 @@
 #define PAPER 0x03     //布
 
 //用户状态
+#define OFFLINE 0x00   //离线
 #define ONLINE 0x01    //在线
-#define OFFLINE 0x02   //离线
-#define PLAY 0x03      //正在对战
+#define PLAY 0x02      //正在对战
 
 //某一轮出招的胜负
 #define WIN 0x01       //胜

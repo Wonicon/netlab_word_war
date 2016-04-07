@@ -6,9 +6,9 @@
 #include <proxy.h>
 #include "state.h"
 #include "lib/message.h"
+#include "lib/ui.h"
 
-void bubble_sort(PlayerEntry list[], int n, int method);
-static int sort_method = 0;
+static int sort_method = 0;  // 决定排序方法 0 不排序，1 win 升序，2 lose 升序
 
 typedef struct {
     char id[10];
@@ -136,7 +136,7 @@ void *push_service(void *arg)
                 // 缓存对手信息
                 strncpy(rival.id, msg.battle.dstID, sizeof(rival.id));
                 // Update info bar
-                update_info(1, "battling with %s, type x, y, z", rival.id);
+                update_info(1, "battling with %s, type 1, 2, 3", rival.id);
             }
             else if (msg.type == ASK_BATTLE) {
                 send_no_battle(&msg);
@@ -158,19 +158,19 @@ void *push_service(void *arg)
                 rival.hp = msg.battle.dstHP;
                 // 打印战果
                 if (msg.battle.result == TIE) {
-                    update_info(1, "%s using %d ties %s using %d\n",
-                             msg.battle.srcID, msg.battle.srcattack,
-                             msg.battle.dstID, msg.battle.dstattack);
+                    update_info(1, "%s using %s ties %s using %s\n",
+                                msg.battle.srcID, get_method(msg.battle.srcattack),
+                                msg.battle.dstID, get_method(msg.battle.dstattack));
                 }
                 else if (msg.battle.result == WIN) {
-                    update_info(1, "%s using %d wins %s using %d\n",
-                             msg.battle.srcID, msg.battle.srcattack,
-                             msg.battle.dstID, msg.battle.dstattack);
+                    update_info(1, "%s using %s wins %s using %s\n",
+                                msg.battle.srcID, get_method(msg.battle.srcattack),
+                                msg.battle.dstID, get_method(msg.battle.dstattack));
                 }
                 else if (msg.battle.result == FAIL) {
-                    update_info(1, "%s using %d wins %s using %d\n",
-                             msg.battle.dstID, msg.battle.dstattack,
-                             msg.battle.srcID, msg.battle.srcattack);
+                    update_info(1, "%s using %s wins %s using %s\n",
+                             msg.battle.dstID, get_method(msg.battle.dstattack),
+                             msg.battle.srcID, get_method(msg.battle.srcattack));
                 }
                 else {
                     update_info(1, "WTF");
@@ -250,7 +250,7 @@ void *user_input(void *arg)
                 }
                 pthread_mutex_unlock(&mutex_list);
                 // 更新 info bar
-                update_info(1, "battling with %s, type x, y, z", rival.id);
+                update_info(1, "battling with %s, type 1, 2, 3", rival.id);
                 // 状态转移
                 increase_info_level();
                 client_state = BATTLING;
@@ -272,9 +272,9 @@ void *user_input(void *arg)
         case BATTLING: {
             uint8_t attack_type;
             switch (cmd) {
-            case 'x': attack_type = STONE; break;
-            case 'y': attack_type = SCISSOR; break;
-            case 'z': attack_type = PAPER; break;
+            case '1': attack_type = STONE; break;
+            case '2': attack_type = SCISSOR; break;
+            case '3': attack_type = PAPER; break;
             // 消息系统
             case ':': {
                 update_info(3, ":");
@@ -295,7 +295,7 @@ void *user_input(void *arg)
             default: attack_type = 0;
             }
             if (attack_type != 0) {
-                update_info(1, "attack on %s with %d, waiting response...", rival.id, attack_type);
+                update_info(1, "attack on %s with %s, waiting response...", rival.id, get_method(attack_type));
                 send_attack_message(attack_type);
                 client_state = WAIT_RESULT;
             }
@@ -426,7 +426,7 @@ void scene_hall(void)
     WINDOW *win_info = newwin(    1, W - 2, H - 4, 1);
     WINDOW *win_help = newwin(    1, W - 2, H - 2, 1);
 
-    wprintw(win_help, "logged in as %s | q: quit ", userID);
+    wprintw(win_help, "logged in as %s | q: quit | h: help ", userID);
     wrefresh(win_help);
 
     // 更新循环
