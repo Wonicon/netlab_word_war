@@ -65,17 +65,21 @@ void *push_service(void *arg)
 
             snprintf(info_bar.buf, info_bar.len, "%s logged out", msg.account.id);
         }
-        else if (msg.type == BATTLE_ANNOUNCE) {
+        else if (msg.type == BATTLE_ANNOUNCE || msg.type == END_BATTLE_ANNOUNCE) {
             pthread_mutex_lock(&mutex_list);
             // 使用 response.battle 根据两个 id 找到交战双方
             for (int i = 0; i < nr_players; i++) {
                 if (!strcmp(player_list[i].userID, msg.battle.srcID)) {
-                    player_list[i].state = ENT_STATE_BUSY;
+                    if (msg.type == BATTLE_ANNOUNCE) player_list[i].state = ENT_STATE_BUSY;
+                    else if (msg.type == END_BATTLE_ANNOUNCE) player_list[i].state = 0;
+                    break;
                 }
             }
             for (int i = 0; i < nr_players; i++) {
                 if (!strcmp(player_list[i].userID, msg.battle.dstID)) {
-                    player_list[i].state = ENT_STATE_BUSY;
+                    if (msg.type == BATTLE_ANNOUNCE) player_list[i].state = ENT_STATE_BUSY;
+                    else if (msg.type == END_BATTLE_ANNOUNCE) player_list[i].state = 0;
+                    break;
                 }
             }
             pthread_mutex_unlock(&mutex_list);
@@ -202,16 +206,35 @@ void *user_input(void *arg)
             break;
         case WAIT_LOCAL_CONFIRM:
             if (cmd == 'y') {
-                // 状态转移
+                // 用于显示的初始血量
                 me.hp = 5;
                 rival.hp = 5;
-                client_state = BATTLING;
                 // 通知对方
                 send_battle_ack(rival.id);
+                // 修改表单
+                pthread_mutex_lock(&mutex_list);
+                for (int i = 0; i < nr_players; i++) {
+                    // 编号可能改变，所以还是遍历搜索
+                    if (!strcmp(player_list[i].userID, rival.id)) {
+                        player_list[i].state = 0;  // 恢复到初始状态，对战双方不需要显示正在对战
+                    }
+                }
+                pthread_mutex_unlock(&mutex_list);
                 // 更新 info bar
                 snprintf(info_bar.buf, info_bar.len, "battling with %s, type x, y, z", rival.id);
+                // 状态转移
+                client_state = BATTLING;
             }
             else if (cmd == 'n') {
+                // 修改表单
+                pthread_mutex_lock(&mutex_list);
+                for (int i = 0; i < nr_players; i++) {
+                    // 编号可能改变，所以还是遍历搜索
+                    if (!strcmp(player_list[i].userID, rival.id)) {
+                        player_list[i].state = 0;  // 恢复到初始状态
+                    }
+                }
+                pthread_mutex_unlock(&mutex_list);
                 client_state = IDLE;
             }
             break;
@@ -353,7 +376,7 @@ void scene_hall(void)
                     mvwprintw(win_list, i, 0, "[%c] %s asking for battle", ch, player_list[i].userID);
                 }
                 else if (player_list[i].state == ENT_STATE_BUSY) {
-                    mvwprintw(win_list, i, 0, "[%c] %s asking is battling", ch, player_list[i].userID);
+                    mvwprintw(win_list, i, 0, "[%c] %s is battling", ch, player_list[i].userID);
                 }
                 else {
                     mvwprintw(win_list, i, 0, "[%c] %s", ch, player_list[i].userID);

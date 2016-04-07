@@ -446,6 +446,16 @@ void *battle(void *argc) {
 
 		sockfd[srcpos].state = 0;
 		sockfd[dstpos].state = 0;
+
+		srcack.type = END_BATTLE_ANNOUNCE;
+		// TODO 对这个数组的访问是否需要上锁？
+		for (int i = 0; i < MAX_NUM_SOCKET; i++) {
+			int fd = sockfd[i].sockfd;
+			if (fd != -1 && fd != srcfd && fd != dstfd) {
+				printf("send end battle announce to %d\n", fd);
+				send(fd, &srcack, sizeof(srcack), 0);
+			}
+		}
 	}
 	return argc;
 }
