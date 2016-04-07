@@ -6,7 +6,7 @@
 #ifndef PROXY_H
 #define PROXY_H
 
-#include <inttypes.h>
+#include <stdint.h>
 
 /* 单个用户与服务器交互（注册、登录、退出）*/
 
@@ -23,12 +23,9 @@
 #define ID_CONFLICT 0x02  //用户ID冲突
 #define LOGIN_ACK 0x03
 #define LOGIN_ERROR 0x04 //用户ID和密码不匹配
-#define LOGOUT_ACK 0x05
 #define LOGIN_ANNOUNCE 0x06 //通知其他用户有用户上线
 #define LOGOUT_ANNOUNCE 0x07 //通知其他用户有用户下线
 #define BATTLE_ANNOUNCE 0x08 //通知其他用户有用户进入游戏状态
-
-#define LIST_UPDATE 0x05  //更新列表
 
 //对战报文类型
 #define ASK_BATTLE 0x10   //发起对战请求
@@ -92,20 +89,6 @@ typedef struct {
 			uint8_t srcHP;
 			uint8_t dstHP;
 		} battle;
-        // 列表创建报文，nr_entry 指示之后要接收多少个 PlayerEntry 结构体
-        struct {
-            int nr_entry;
-        } list;
-        // 列表更新报文，表明列表变化内容
-        struct {
-#define LIST_ADD 1
-#define LIST_DEL 2
-#define LIST_RANK 3
-#define LIST_FRIEND 4
-            int change;
-            char userID[10];
-            int new_rank;
-        } list_chg;
 	};
 } Response;
 #pragma pack()

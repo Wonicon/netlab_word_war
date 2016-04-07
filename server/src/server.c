@@ -146,15 +146,13 @@ static void *echo(void *arg)
 		else if(msg.type == NO_BATTLE) //拒绝对战
 			handle_nobattle(msg.battle.srcID, msg.battle.dstID, fd);  //fd是应战方的套接字
 		else if(msg.type == IN_BATTLE) {//对战报文
-			//handle_inbattle(fd);
-			int i;
 			int pos = -1;
-			for(i = 0; i < MAX_NUM_SOCKET; i++)
+			for(int i = 0; i < MAX_NUM_SOCKET; i++)
 				if(sockfd[i].sockfd == fd) {
 					pos = i;
 					break;
 				}
-
+			printf("attack\n");
 			sockfd[pos].attack = msg.battle.attack;
 			sockfd[pos].state = 1;
 		}
@@ -184,8 +182,10 @@ void handle_login(char *userID, char *passwd, int fd) {
 
 	if(check_table(userID, passwd, &q) != NULL) {
 		// 只持续维护登陆连接
+		printf("%s is logging in\n", userID);
 		int is_inserted = 0;
 		for(int i = 0; i < MAX_NUM_SOCKET; i++) {
+			printf("! %d %d\n", sockfd[i].sockfd, fd);
 			if (sockfd[i].sockfd == -1) {
 				sockfd[i].sockfd = fd;
 				strncpy(sockfd[i].userID, userID, sizeof(sockfd[i].userID) - 1);
@@ -306,8 +306,7 @@ void handle_yesbattle(char *srcID, char *dstID, int dstfd) {
 		a.dstfd = dstfd;
 
 		pthread_t tid;
-		pthread_create(&tid, NULL, battle, (void *)&a);
-
+		pthread_create(&tid, NULL, battle, &a);
 	}
 	else {
 		ack.type = BATTLE_ERROR;
@@ -334,22 +333,28 @@ void handle_nobattle(char *srcID, char *dstID, int dstfd) {
 }
 
 void *battle(void *argc) {
-	struct param {
+	struct {
 		int srcfd;
 		int dstfd;
-	} *a;
-	a = (struct param*)argc;
+	} *a = argc;
 
-	int srcfd = a->srcfd;
-	int dstfd = a->dstfd;
+	int srcfd = a->srcfd, dstfd = a->dstfd;
 
 	//找到套接字对应的server_thread结构体
-	int srcpos, dstpos, i;
-	for(i = 0; i < MAX_NUM_SOCKET; i++)
-		if(sockfd[i].sockfd == srcfd)
+	int srcpos = -1, dstpos = -1;
+	for(int i = 0; i < MAX_NUM_SOCKET; i++) {
+		if (sockfd[i].sockfd == srcfd) {
 			srcpos = i;
-		else if(sockfd[i].sockfd == dstfd)
+		}
+		else if (sockfd[i].sockfd == dstfd) {
 			dstpos = i;
+		}
+	}
+
+	if (srcpos == -1 || dstpos == -1) {
+		fprintf(stderr, "ERROR: connection not found");
+		pthread_exit(NULL);
+	}
 
 	//进行初始化
 	sockfd[srcpos].HP = INIT_HP;
@@ -367,6 +372,7 @@ void *battle(void *argc) {
 
 		//如果超时
 		if(time_count == TIME_OUT) {
+			printf("timeout\n");
 			//双方同时掉线，HP减1是为了防止对战线程一直在空等待
 			if(sockfd[srcpos].state == 0 && sockfd[dstpos].state == 0) {
 				sockfd[srcpos].result = TIE;
@@ -386,10 +392,10 @@ void *battle(void *argc) {
 				sockfd[dstpos].result = WIN;
 				sockfd[srcpos].HP -= 1;
 			}
-
 		}
 		//不超时，招式对比
 		else {
+			printf("battle\n");
 			//出招一样
 			if(sockfd[srcpos].attack == sockfd[dstpos].attack) {
 				sockfd[srcpos].result = TIE;

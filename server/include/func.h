@@ -14,7 +14,7 @@ struct server_thread {
 	int state;         //玩家是否处于对战状态
 	uint8_t attack;    //玩家出招
 	uint8_t result;    //一轮的对战结果
-	int HP;            //血量
+	uint8_t HP;        //血量
 };
 
 //设定超时时间
