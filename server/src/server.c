@@ -77,16 +77,6 @@ int main(int argc, char *argv[])
         socklen_t sock_len;
         struct sockaddr_in addr;
         int connect_sock = accept(listen_sock, (struct sockaddr *)&addr, &sock_len);
-
-		int i;
-		for(i = 0; i < MAX_NUM_SOCKET; i++)
-			if(sockfd[i].sockfd == -1) {
-				sockfd[i].sockfd = connect_sock;
-				memset(sockfd[i].userID,0,10);
-				sockfd[i].state = 0;
-				break;
-			}
-
         pthread_create(&tid, NULL, echo, (void *)(long)connect_sock);
     }
 }
