@@ -13,11 +13,9 @@
 struct {
     char *buf;
     size_t len;
-    pthread_mutex_t mutex;
 } info_bar = {
     NULL,
-    0,
-    PTHREAD_MUTEX_INITIALIZER
+    0
 };
 
 typedef struct {
@@ -50,9 +48,7 @@ void *push_service(void *arg)
             nr_players++;
             pthread_mutex_unlock(&mutex_list);
 
-            pthread_mutex_lock(&info_bar.mutex);
             snprintf(info_bar.buf, info_bar.len, "%s logged in", msg.account.id);
-            pthread_mutex_unlock(&info_bar.mutex);
         }
         else if (msg.type == LOGOUT_ANNOUNCE) {
             pthread_mutex_lock(&mutex_list);
@@ -67,9 +63,7 @@ void *push_service(void *arg)
             nr_players--;
             pthread_mutex_unlock(&mutex_list);
 
-            pthread_mutex_lock(&info_bar.mutex);
             snprintf(info_bar.buf, info_bar.len, "%s logged out", msg.account.id);
-            pthread_mutex_unlock(&info_bar.mutex);
         }
 
         switch (client_state) {
@@ -78,9 +72,7 @@ void *push_service(void *arg)
             if (msg.type == ASK_BATTLE) {
                 client_state = WAIT_LOCAL_CONFIRM;
                 strncpy(rival.id, msg.battle.srcID, sizeof(rival.id));
-                pthread_mutex_lock(&info_bar.mutex);
                 snprintf(info_bar.buf, info_bar.len, "%s asks for battling (y for yes, n for no)", msg.battle.srcID);
-                pthread_mutex_unlock(&info_bar.mutex);
             }
             break;
         // 等待对战请求响应，忽视其他报文，TODO 拒绝新的对战请求
@@ -96,9 +88,7 @@ void *push_service(void *arg)
                 // 缓存对手信息
                 strncpy(rival.id, msg.battle.dstID, sizeof(rival.id));
                 // Update info bar
-                pthread_mutex_lock(&info_bar.mutex);
                 snprintf(info_bar.buf, info_bar.len, "battling with %s, type x, y, z", rival.id);
-                pthread_mutex_unlock(&info_bar.mutex);
             }
             break;
         case WAIT_RESULT:
@@ -136,9 +126,7 @@ void *user_input(void *arg)
             else if (cmd == '\n' && selected >= 0 && selected < nr_players) {
                 send_invitation_msg();
                 client_state = WAIT_REMOTE_CONFIRM;
-                pthread_mutex_lock(&info_bar.mutex);
                 snprintf(info_bar.buf, info_bar.len, "waiting %s's response", player_list[selected].userID);
-                pthread_mutex_unlock(&info_bar.mutex);
             }
             pthread_mutex_unlock(&mutex_list);
             break;
@@ -151,9 +139,7 @@ void *user_input(void *arg)
                 // 通知对方
                 send_battle_ack(rival.id);
                 // 更新 info bar
-                pthread_mutex_lock(&info_bar.mutex);
                 snprintf(info_bar.buf, info_bar.len, "battling with %s, type x, y, z", rival.id);
-                pthread_mutex_unlock(&info_bar.mutex);
             }
             else if (cmd == 'n') {
                 client_state = IDLE;
@@ -307,9 +293,7 @@ void scene_hall(void)
 
     close(client_socket);
 
-    pthread_mutex_lock(&info_bar.mutex);
     snprintf(info_bar.buf, info_bar.len, "quiting...");
-    pthread_mutex_unlock(&info_bar.mutex);
 
     for (int i = 0; i < sizeof(threads) / sizeof(threads[i]); i++) {
         pthread_join(threads[i].tid, NULL);
