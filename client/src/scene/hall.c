@@ -65,6 +65,21 @@ void *push_service(void *arg)
 
             snprintf(info_bar.buf, info_bar.len, "%s logged out", msg.account.id);
         }
+        else if (msg.type == BATTLE_ANNOUNCE) {
+            pthread_mutex_lock(&mutex_list);
+            // 使用 response.battle 根据两个 id 找到交战双方
+            for (int i = 0; i < nr_players; i++) {
+                if (!strcmp(player_list[i].userID, msg.battle.srcID)) {
+                    player_list[i].state = ENT_STATE_BUSY;
+                }
+            }
+            for (int i = 0; i < nr_players; i++) {
+                if (!strcmp(player_list[i].userID, msg.battle.dstID)) {
+                    player_list[i].state = ENT_STATE_BUSY;
+                }
+            }
+            pthread_mutex_unlock(&mutex_list);
+        }
 
         switch (client_state) {
         // 在空闲状态下对远程的接收对战请求进行响应

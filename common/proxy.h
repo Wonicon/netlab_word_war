@@ -25,7 +25,7 @@
 #define LOGIN_ERROR 0x04 //用户ID和密码不匹配
 #define LOGIN_ANNOUNCE 0x06 //通知其他用户有用户上线
 #define LOGOUT_ANNOUNCE 0x07 //通知其他用户有用户下线
-#define BATTLE_ANNOUNCE 0x08 //通知其他用户有用户进入游戏状态
+#define BATTLE_ANNOUNCE 0x08 //通知其他用户有用户进入游戏状态，在一个报文中表明交战双方
 
 //对战报文类型
 #define ASK_BATTLE 0x10   //发起对战请求

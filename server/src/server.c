@@ -273,29 +273,18 @@ void handle_yesbattle(char *srcID, char *dstID, int dstfd) {
 		ack.type = YES_BATTLE;
 		strcpy(ack.battle.srcID,srcID);
 		strcpy(ack.battle.dstID,dstID);
-		printf("yes battle: %s -> %s", ack.battle.srcID, ack.battle.dstID);
+		printf("yes battle: %s -> %s\n", ack.battle.srcID, ack.battle.dstID);
 		send(srcfd, &ack, sizeof(Response), 0);
 		
 		//修改数据库，向其他所有在线玩家发送这两个玩家进入对战状态
 		if(alter_table(srcID,2) == 0 && alter_table(dstID,2) == 0) {
-			Response srcAnnounce = {
-				.type = BATTLE_ANNOUNCE,
-				.account.num = 0x01
-			};
-			strcpy(srcAnnounce.account.id,srcID);
-
-			Response dstAnnounce = {
-				.type = BATTLE_ANNOUNCE,
-				.account.num = 0x01
-			};
-			strcpy(dstAnnounce.account.id,dstID);
-
+			Response notice = { .type = BATTLE_ANNOUNCE };
+			strcpy(notice.battle.srcID, srcID);
+			strcpy(notice.battle.dstID, dstID);
 			//通知其他在线玩家有玩家进入游戏状态
-			int i;
-			for(i = 0; i < MAX_NUM_SOCKET; i++)
+			for(int i = 0; i < MAX_NUM_SOCKET; i++)
 				if(sockfd[i].sockfd != -1 && sockfd[i].sockfd != srcfd && sockfd[i].sockfd != dstfd) {
-					send(sockfd[i].sockfd, &srcAnnounce, sizeof(Response),0);
-					send(sockfd[i].sockfd, &dstAnnounce, sizeof(Response),0);
+					send(sockfd[i].sockfd, &notice, sizeof(Response), 0);
 				}
 		}
 
