@@ -28,6 +28,9 @@
 #define BATTLE_ANNOUNCE 0x08 //通知其他用户有用户进入游戏状态，在一个报文中表明交战双方
 #define END_BATTLE_ANNOUNCE 0x09 // 通知其他用户双方退出对战状态
 
+#define MESSAGE 0x0a  // 消息
+#define MSG_LEN 128
+
 //对战报文类型
 #define ASK_BATTLE 0x10   //发起对战请求
 #define YES_BATTLE 0x20   //接受对战
@@ -69,6 +72,11 @@ typedef struct {
 			char dstID[10];
 			uint8_t attack;
 		} battle;
+		struct {
+			char srcID[10];
+			char dstID[10];
+			uint8_t len;
+		} msg;
 	};
 } Request;
 #pragma pack()
@@ -90,6 +98,10 @@ typedef struct {
 			uint8_t srcHP;
 			uint8_t dstHP;
 		} battle;
+		struct {
+			char srcID[10];
+			uint8_t len;
+		} msg;
 	};
 } Response;
 #pragma pack()

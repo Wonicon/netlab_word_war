@@ -156,6 +156,21 @@ static void *echo(void *arg)
 			sockfd[pos].attack = msg.battle.attack;
 			sockfd[pos].state = 1;
 		}
+		else if(msg.type == MESSAGE) {
+			// 读取变长字符串
+			char text[MSG_LEN] = { };
+			read(fd, text, msg.msg.len);
+			printf("MSG: %s (%s -> %s)\n", text, msg.msg.srcID, msg.msg.dstID);
+			// 转发 TODO 上锁？
+			for (int i = 0; i < MAX_NUM_SOCKET; i++) {
+				if (!strcmp(sockfd[i].userID, msg.msg.dstID)) {
+					Response r = { .type = MESSAGE, .msg.len = msg.msg.len };
+					strcpy(r.msg.srcID, msg.msg.srcID);
+					write(sockfd[i].sockfd, &r, sizeof(r));  // 告知类型、来源和长度
+					write(sockfd[i].sockfd, text, r.msg.len);  // 变长字符串
+				}
+			}
+		}
 		else if(msg.type == END_BATTLE) //某一方血量为0，结束对战
 			;
 

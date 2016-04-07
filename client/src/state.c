@@ -59,11 +59,22 @@ static struct {
     char *buf;
     size_t len;
     int level;
-} info = { NULL, 0, 0 };
+    pthread_mutex_t mutex;
+} info = { NULL, 0, 0, PTHREAD_MUTEX_INITIALIZER };
 
-void increase_info_level(void) { info.level++; }
+void increase_info_level(void)
+{
+    pthread_mutex_lock(&info.mutex);
+    info.level++;
+    pthread_mutex_unlock(&info.mutex);
+}
 
-void decrease_info_level(void) { info.level--; }
+void decrease_info_level(void)
+{
+    pthread_mutex_lock(&info.mutex);
+    info.level--;
+    pthread_mutex_lock(&info.mutex);
+}
 
 void init_info(int w)
 {
@@ -73,12 +84,14 @@ void init_info(int w)
 
 void update_info(int level, const char *fmt, ...)
 {
+    pthread_mutex_lock(&info.mutex);
     if (level >= info.level) {
         va_list args;
         va_start(args, fmt);
         vsnprintf(info.buf, info.len, fmt, args);
         va_end(args);
     }
+    pthread_mutex_lock(&info.mutex);
 }
 
 const char *get_info(void)

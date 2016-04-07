@@ -73,6 +73,11 @@ void *push_service(void *arg)
             }
             pthread_mutex_unlock(&mutex_list);
         }
+        else if (msg.type == MESSAGE) {
+            char text[MSG_LEN] = { };
+            read(client_socket, text, msg.msg.len);
+            update_info(3, "'%s' from %s", text, msg.msg.srcID);
+        }
 
         switch (client_state) {
         // 在空闲状态下对远程的接收对战请求进行响应
@@ -238,6 +243,23 @@ void *user_input(void *arg)
             case 'x': attack_type = STONE; break;
             case 'y': attack_type = SCISSOR; break;
             case 'z': attack_type = PAPER; break;
+            // 消息系统
+            case ':': {
+                update_info(3, ":");
+                char msg[MSG_LEN] = { };
+                int i = 0;
+                while (i < MSG_LEN && (msg[i] = (char)getch()) != '\n') {
+                    update_info(3, ":%s", msg);
+                    i++;
+                }
+                msg[i] = '\0';  // 不要 '\n'，注意没有 i++
+                Request r = { .type = MESSAGE, .msg.len = (uint8_t)strlen(msg) };
+                strcpy(r.msg.dstID, rival.id);
+                strcpy(r.msg.srcID, userID);
+                write(client_socket, &r, sizeof(r));
+                write(client_socket, msg, r.msg.len);
+                update_info(0, "sent");
+            }
             default: attack_type = 0;
             }
             if (attack_type != 0) {
