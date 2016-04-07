@@ -271,6 +271,8 @@ static int send_list_entry_callback(void *p, int argc, char **argv, char **col_n
 	if (strcmp(u->username, argv[0])) {
 		PlayerEntry entry = { .state = u->entry_state };
 		strncpy(entry.userID, argv[0], sizeof(entry.userID) - 1);
+		entry.win = (uint8_t)atoi(argv[1]);
+		entry.lose = (uint8_t)atoi(argv[2]);
 		write(u->socket_fd, &entry, sizeof(entry));
 	}
 	return 0;
@@ -289,8 +291,8 @@ int send_list(int socket_fd, char username[])
 	ConnectionInfo info = { .socket_fd = socket_fd, .entry_state = 0 };
 	strncpy(info.username, username, sizeof(info.username) - 1);
 
-	const char sql_idle[] = "SELECT ID FROM PLAYER WHERE STATE = 1";
-	const char sql_battle[] = "SELECT ID FROM PLAYER WHERE STATE = 2";
+	const char sql_idle[] = "SELECT ID, WIN, LOSE FROM PLAYER WHERE STATE = 1";
+	const char sql_battle[] = "SELECT ID, WIN, LOSE FROM PLAYER WHERE STATE = 2";
 
 	sqlite3_exec(db, sql_idle, send_list_entry_callback, &info, NULL);
 	info.entry_state = ENT_STATE_BUSY;
@@ -322,7 +324,7 @@ Response increase_win(const char *user)
 	sqlite3_open(TABLE_NAME, &db);
 
 	char sql[1204] = { };
-	snprintf(sql, sizeof(sql) - 1, "UPDATE PLAYER SET WIN = WIN + 1, STATE = 1 WHERE ID = '%s'", user);
+	snprintf(sql, sizeof(sql) - 1, "UPDATE PLAYER SET WIN = WIN + 1 WHERE ID = '%s'", user);
 	sqlite3_exec(db, sql, NULL, NULL, NULL);
 
 	Response r = { };
@@ -339,7 +341,7 @@ Response increase_lose(const char *user)
 	sqlite3_open(TABLE_NAME, &db);
 
 	char sql[1204] = { };
-	snprintf(sql, sizeof(sql) - 1, "UPDATE PLAYER SET LOSE = LOSE + 1, STATE = 1 WHERE ID = '%s'", user);
+	snprintf(sql, sizeof(sql) - 1, "UPDATE PLAYER SET LOSE = LOSE + 1 WHERE ID = '%s'", user);
 	sqlite3_exec(db, sql, NULL, NULL, NULL);
 
 	Response r = { };
@@ -348,4 +350,23 @@ Response increase_lose(const char *user)
 	sqlite3_exec(db, sql, send_new_win_lose, &r, NULL);
 
 	return r;
+}
+
+static int get_win_lose_callback(void *p, int argc, char **argv, char **col)
+{
+	uint8_t **a = p;
+	*(a[0]) = (uint8_t)atoi(argv[0]);  // WIN
+	*(a[1]) = (uint8_t)atoi(argv[1]);  // LOSE
+	return 0;
+}
+
+void get_win_lose(const char *user, uint8_t *pwin, uint8_t *plose)
+{
+	sqlite3 *db;
+	sqlite3_open(TABLE_NAME, &db);
+
+	char sql[1204] = { };
+	snprintf(sql, sizeof(sql) - 1, "SELECT WIN, LOSE FROM PLAYER WHERE ID = '%s'", user);
+	uint8_t *a[] = { pwin, plose };
+	sqlite3_exec(db, sql, get_win_lose_callback, a, NULL);
 }

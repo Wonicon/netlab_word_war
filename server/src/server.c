@@ -221,7 +221,7 @@ void handle_login(char *userID, char *passwd, int fd) {
 
 					announce.account.num = 0x01;
 			strncpy(announce.account.id, userID, sizeof(announce.account.id) - 1);
-
+			get_win_lose(userID, &announce.account.win, &announce.account.lose);
 			for(int i = 0; i < MAX_NUM_SOCKET; i++) {
 				printf("%d %d\n", sockfd[i].sockfd, fd);
 				if (sockfd[i].sockfd != -1 && sockfd[i].sockfd != fd) {
@@ -231,7 +231,7 @@ void handle_login(char *userID, char *passwd, int fd) {
 
 			//给该玩家发送登录确认的报文
 			ack.type = LOGIN_ACK;
-			ack.account.num = count_online() - 1;  // 去掉自己
+			ack.account.num = (uint8_t)(count_online() - 1);  // 去掉自己
 			printf("%s will receive %d entries\n", userID, ack.account.num);
 			send(fd, &ack, sizeof(Response), 0);
 			send_list(fd, userID);
@@ -487,10 +487,21 @@ void *battle(void *argc) {
 
 	strcpy(r.report.srcID, sockfd[srcpos].userID);
 	strcpy(r.report.dstID, sockfd[dstpos].userID);
+
+	alter_table(sockfd[srcpos].userID, 1);
+	alter_table(sockfd[dstpos].userID, 1);
+
 	// TODO 对这个数组的访问是否需要上锁？
 	for (int i = 0; i < MAX_NUM_SOCKET; i++) {
 		int fd = sockfd[i].sockfd;
-		if (fd != -1 && fd != srcfd && fd != dstfd) {
+		if (fd != -1 && fd != srcfd) {
+			printf("send end battle announce to %s\n", sockfd[i].userID);
+			send(fd, &r, sizeof(r), 0);
+		}
+	}
+	for (int i = 0; i < MAX_NUM_SOCKET; i++) {
+		int fd = sockfd[i].sockfd;
+		if (fd != -1 && fd != dstfd) {
 			printf("send end battle announce to %s\n", sockfd[i].userID);
 			send(fd, &r, sizeof(r), 0);
 		}

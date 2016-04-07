@@ -86,8 +86,10 @@ typedef struct {
 	uint8_t type;
 	union {
 		struct {
-			int num;
+			uint8_t num;
 			char id[10];
+			uint8_t win;
+			uint8_t lose;
 		} account;
 		struct {
 			char srcID[10];
@@ -122,9 +124,9 @@ typedef struct {
  */
 typedef struct {
 	char userID[10];    // 用户名
-	uint8_t rank;       // 排名
 	uint8_t state;      // 状态（对战/空闲）
-	uint8_t is_friend;  // 与当前请求的玩家是否是好友
+	uint8_t win;
+	uint8_t lose;
 } PlayerEntry;
 #pragma pack()
 

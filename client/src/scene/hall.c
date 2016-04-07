@@ -7,6 +7,9 @@
 #include "state.h"
 #include "lib/message.h"
 
+void bubble_sort(PlayerEntry list[], int n, int method);
+static int sort_method = 0;
+
 typedef struct {
     char id[10];
     uint8_t hp;
@@ -34,6 +37,9 @@ void *push_service(void *arg)
             pthread_mutex_lock(&mutex_list);
             player_list = realloc(player_list, (nr_players + 1) * sizeof(PlayerEntry));
             strcpy(player_list[nr_players].userID, msg.account.id);
+            player_list[nr_players].win = msg.account.win;
+            player_list[nr_players].lose = msg.account.lose;
+            player_list[nr_players].state = 0;
             nr_players++;
             pthread_mutex_unlock(&mutex_list);
 
@@ -77,12 +83,16 @@ void *push_service(void *arg)
             for (int i = 0; i < nr_players; i++) {
                 if (!strcmp(player_list[i].userID, msg.report.srcID)) {
                     player_list[i].state = 0;
+                    player_list[i].win = msg.report.src_win;
+                    player_list[i].lose = msg.report.src_lose;
                     break;
                 }
             }
             for (int i = 0; i < nr_players; i++) {
                 if (!strcmp(player_list[i].userID, msg.report.dstID)) {
                     player_list[i].state = 0;
+                    player_list[i].win = msg.report.dst_win;
+                    player_list[i].lose = msg.report.dst_lose;
                     break;
                 }
             }
@@ -201,6 +211,12 @@ void *user_input(void *arg)
         }
         else if (cmd == 'h') {
             help_window_en = !help_window_en;  // flip-flop
+        }
+        else if (cmd == 'w') {
+            sort_method = (sort_method == 1) ? 0 : 1;  // sort by win, flip-flop
+        }
+        else if (cmd == 'l') {
+            sort_method = (sort_method == 2) ? 0 : 2;  // sort by lose, flip-flop
         }
 
         switch (client_state) {
@@ -422,6 +438,7 @@ void scene_hall(void)
         werase(win_list);
         if ((client_state == IDLE || client_state == WAIT_LOCAL_CONFIRM || client_state == WAIT_REMOTE_CONFIRM) && player_list) {
             pthread_mutex_lock(&mutex_list);
+            bubble_sort(player_list, nr_players, sort_method);
             for (int i = 0; i < nr_players; i++) {
                 // TODO 用颜色高亮
                 // TODO 并发粒度太大，选择卡顿
@@ -437,7 +454,8 @@ void scene_hall(void)
                     mvwprintw(win_list, i, 0, "[%c] %s is battling", ch, player_list[i].userID);
                 }
                 else {
-                    mvwprintw(win_list, i, 0, "[%c] %s", ch, player_list[i].userID);
+                    mvwprintw(win_list, i, 0, "[%c] %s: win %d, lose %d",
+                              ch, player_list[i].userID, player_list[i].win , player_list[i].lose);
                 }
                 // 这货也不是线程安全的！
             }

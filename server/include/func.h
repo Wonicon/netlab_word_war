@@ -38,5 +38,6 @@ void *battle(void *argc);
 
 Response increase_lose(const char *user);
 Response increase_win(const char *user);
+void get_win_lose(const char *user, uint8_t *pwin, uint8_t *plose);
 
 #endif
