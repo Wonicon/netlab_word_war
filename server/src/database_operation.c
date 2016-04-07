@@ -243,7 +243,7 @@ int alter_table(char *userID, int status) {
 
 int count_online(void)
 {
-	const char sql[] = "SELECT COUNT(*) FROM PLAYER WHERE STATE = 1";
+	const char sql[] = "SELECT COUNT(*) FROM PLAYER WHERE STATE >= 1";
 	sqlite3 *db;
 	sqlite3_open(TABLE_NAME, &db);
 	sqlite3_exec(db, sql, NULL, NULL, NULL);
@@ -258,6 +258,7 @@ int count_online(void)
 typedef struct {
 	int socket_fd;
 	char username[10];
+	uint8_t entry_state;
 } ConnectionInfo;
 
 //登陆时调用，发送所有在线用户
@@ -266,7 +267,7 @@ static int send_list_entry_callback(void *p, int argc, char **argv, char **col_n
 	ConnectionInfo *u = p;
 	for (int i = 0; i < argc; i++) {
 		if (strcmp(u->username, argv[i])) {
-			PlayerEntry entry = {};
+			PlayerEntry entry = { .state = u->entry_state };
 			strncpy(entry.userID, argv[i], sizeof(entry.userID) - 1);
 			write(u->socket_fd, &entry, sizeof(entry));
 		}
@@ -281,12 +282,17 @@ static int send_list_entry_callback(void *p, int argc, char **argv, char **col_n
  */
 int send_list(int socket_fd, char username[])
 {
-	const char sql[] = "SELECT ID FROM PLAYER WHERE STATE = 1";
 	sqlite3 *db;
 	sqlite3_open(TABLE_NAME, &db);
 
-	ConnectionInfo info = { .socket_fd = socket_fd };
+	ConnectionInfo info = { .socket_fd = socket_fd, .entry_state = 0 };
 	strncpy(info.username, username, sizeof(info.username) - 1);
-	sqlite3_exec(db, sql, send_list_entry_callback, &info, NULL);
+
+	const char sql_idle[] = "SELECT ID FROM PLAYER WHERE STATE = 1";
+	const char sql_battle[] = "SELECT ID FROM PLAYER WHERE STATE = 2";
+
+	sqlite3_exec(db, sql_idle, send_list_entry_callback, &info, NULL);
+	info.entry_state = ENT_STATE_BUSY;
+	sqlite3_exec(db, sql_battle, send_list_entry_callback, &info, NULL);
 	return 0;
 }
