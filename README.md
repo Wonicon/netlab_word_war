@@ -2,6 +2,13 @@
 
 目前只有串行客户端与并发服务器的基本通信框架。
 
+需要安装库:
+
+```
+$ sudo apt-get install libsqlite3-dev
+$ sudo apt-get install libncurses5-dev
+```
+
 项目结构：
 
 ```
@@ -22,7 +29,7 @@
 
 ```
 # Terminal 1
-$ ./server.bin 127.0.0.1 4000
+$ ./server.bin 4000
 
 # Terminal 2
 $ ./client.bin 127.0.0.1 4000
