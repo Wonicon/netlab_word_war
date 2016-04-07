@@ -101,10 +101,12 @@ void *push_service(void *arg)
                 pthread_mutex_unlock(&info_bar.mutex);
             }
             break;
-        case BATTLING:
+        case WAIT_RESULT:
             if (msg.type == IN_BATTLE) {
                 me.hp = msg.battle.srcHP;
                 rival.hp = msg.battle.dstHP;
+                snprintf(info_bar.buf, info_bar.len, "battling with %s, type x, y, z", rival.id);
+                client_state = BATTLING;
             }
         default: ;
         }
@@ -157,6 +159,7 @@ void *user_input(void *arg)
                 client_state = IDLE;
             }
             break;
+        // 对战状态，处理用户输入，并转入等待服务器的裁决
         case BATTLING: {
             uint8_t attack_type;
             switch (cmd) {
@@ -166,7 +169,9 @@ void *user_input(void *arg)
             default: attack_type = 0;
             }
             if (attack_type != 0) {
+                snprintf(info_bar.buf, info_bar.len, "attack on %s with %d, waiting response...", rival.id, attack_type);
                 send_attack_message(attack_type);
+                client_state = WAIT_RESULT;
             }
             break;
         }
@@ -180,7 +185,6 @@ void *user_input(void *arg)
 /**
  * @brief 绘制对战信息
  */
-char *HP_BAR = NULL;
 void draw_battle_screen(WINDOW *wind)
 {
     int h, w;
@@ -251,8 +255,6 @@ void scene_hall(void)
 
     client_state = IDLE;
     strncpy(me.id, userID, sizeof(me.id) - 1);
-    HP_BAR = malloc(sizeof(char) * W);
-    memset(HP_BAR, '#', sizeof(char) * W);
 
     struct {
         void *(*thread)(void *);
@@ -291,7 +293,7 @@ void scene_hall(void)
             }
             pthread_mutex_unlock(&mutex_list);
         }
-        else if (client_state == BATTLING) {
+        else if (client_state == BATTLING || client_state == WAIT_RESULT) {
             draw_battle_screen(win_list);
         }
         wrefresh(win_list);

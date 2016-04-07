@@ -15,6 +15,7 @@ typedef enum {
     WAIT_LOCAL_CONFIRM,
     WAIT_REMOTE_CONFIRM,
     BATTLING,
+    WAIT_RESULT,
     QUIT,
 } ClientState;
 
