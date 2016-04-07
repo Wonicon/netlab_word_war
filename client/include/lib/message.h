@@ -14,4 +14,6 @@ void send_logout_msg(void);
 
 void send_battle_ack(const char src[]);
 
+void send_attack_message(uint8_t type);
+
 #endif

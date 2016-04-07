@@ -131,3 +131,16 @@ void send_battle_ack(const char src[])
     // Send yes
     write(client_socket, &msg, sizeof(msg));
 }
+
+/**
+ * @brief 发送出招报文
+ * @param type 出招类型 石头 0x01 剪刀 0x02 布 0x03
+ */
+void send_attack_message(uint8_t type)
+{
+    Request msg = {
+            .type = IN_BATTLE,
+            .battle.attack = type
+    };
+    write(client_socket, &msg, sizeof(msg));
+}

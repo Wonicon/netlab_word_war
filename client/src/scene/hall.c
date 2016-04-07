@@ -82,6 +82,7 @@ void *push_service(void *arg)
                 snprintf(info_bar.buf, info_bar.len, "%s asks for battling (y for yes, n for no)", msg.battle.srcID);
                 pthread_mutex_unlock(&info_bar.mutex);
             }
+            break;
         // 等待对战请求响应，忽视其他报文，TODO 拒绝新的对战请求
         case WAIT_REMOTE_CONFIRM:
             if (msg.type == NO_BATTLE || msg.type == BATTLE_ERROR) {
@@ -89,15 +90,22 @@ void *push_service(void *arg)
             }
             else if (msg.type == YES_BATTLE) {
                 // 状态转移
+                me.hp = 5;
+                rival.hp = 5;
                 client_state = BATTLING;
                 // 缓存对手信息
                 strncpy(rival.id, msg.battle.dstID, sizeof(rival.id));
                 // Update info bar
                 pthread_mutex_lock(&info_bar.mutex);
-                snprintf(info_bar.buf, info_bar.len, "battling with %s", rival.id);
+                snprintf(info_bar.buf, info_bar.len, "battling with %s, type x, y, z", rival.id);
                 pthread_mutex_unlock(&info_bar.mutex);
             }
             break;
+        case BATTLING:
+            if (msg.type == IN_BATTLE) {
+                me.hp = msg.battle.srcHP;
+                rival.hp = msg.battle.dstHP;
+            }
         default: ;
         }
     }
@@ -135,21 +143,33 @@ void *user_input(void *arg)
         case WAIT_LOCAL_CONFIRM:
             if (cmd == 'y') {
                 // 状态转移
+                me.hp = 5;
+                rival.hp = 5;
                 client_state = BATTLING;
                 // 通知对方
                 send_battle_ack(rival.id);
                 // 更新 info bar
                 pthread_mutex_lock(&info_bar.mutex);
-                snprintf(info_bar.buf, info_bar.len, "battling with %s", rival.id);
+                snprintf(info_bar.buf, info_bar.len, "battling with %s, type x, y, z", rival.id);
                 pthread_mutex_unlock(&info_bar.mutex);
             }
             else if (cmd == 'n') {
                 client_state = IDLE;
             }
-            noecho();
             break;
-        case BATTLING:
+        case BATTLING: {
+            uint8_t attack_type;
+            switch (cmd) {
+            case 'x': attack_type = STONE; break;
+            case 'y': attack_type = SCISSOR; break;
+            case 'z': attack_type = PAPER; break;
+            default: attack_type = 0;
+            }
+            if (attack_type != 0) {
+                send_attack_message(attack_type);
+            }
             break;
+        }
         default: ;
         }
     }
@@ -167,10 +187,10 @@ void draw_battle_screen(WINDOW *wind)
     getmaxyx(wind, h, w);
     int len = 10;
     mvwprintw(wind, 0, 0, "%-*.*s", len, len, rival.id);  // left-aligned
-    mvwprintw(wind, 0, len, "%*.*s", rival.hp * (w - len) / 100, w - len, HP_BAR);
+    for (int i = 0;  i < rival.hp; i++) mvwprintw(wind, 0, w - rival.hp + i, "#");
 
     mvwprintw(wind, h - 1, w - len, "%*.*s", len, len, me.id);
-    mvwprintw(wind, h - 1, 0, "%*.*s", me.hp * (w - len) / 100, w - len, HP_BAR);
+    for (int i = 0;  i < me.hp; i++) mvwprintw(wind, h - 1, i, "#");
 }
 
 /**
@@ -231,7 +251,6 @@ void scene_hall(void)
 
     client_state = IDLE;
     strncpy(me.id, userID, sizeof(me.id) - 1);
-    me.hp = 100;
     HP_BAR = malloc(sizeof(char) * W);
     memset(HP_BAR, '#', sizeof(char) * W);
 
