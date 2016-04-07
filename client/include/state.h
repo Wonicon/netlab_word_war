@@ -33,4 +33,14 @@ extern int nr_players;
 
 extern int help_window_en;
 
+void increase_info_level(void);
+
+void decrease_info_level(void);
+
+void init_info(int w);
+
+void update_info(int level, const char *fmt, ...);
+
+const char *get_info(void);
+
 #endif

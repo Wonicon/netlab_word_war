@@ -7,17 +7,6 @@
 #include "state.h"
 #include "lib/message.h"
 
-/**
- * @brief 用于显示通知信息
- */
-struct {
-    char *buf;
-    size_t len;
-} info_bar = {
-    NULL,
-    0
-};
-
 typedef struct {
     char id[10];
     uint8_t hp;
@@ -48,7 +37,7 @@ void *push_service(void *arg)
             nr_players++;
             pthread_mutex_unlock(&mutex_list);
 
-            snprintf(info_bar.buf, info_bar.len, "%s logged in", msg.account.id);
+            update_info(0, "%s logged in", msg.account.id);
         }
         else if (msg.type == LOGOUT_ANNOUNCE) {
             pthread_mutex_lock(&mutex_list);
@@ -63,7 +52,7 @@ void *push_service(void *arg)
             nr_players--;
             pthread_mutex_unlock(&mutex_list);
 
-            snprintf(info_bar.buf, info_bar.len, "%s logged out", msg.account.id);
+            update_info(0, "%s logged out", msg.account.id);
         }
         else if (msg.type == BATTLE_ANNOUNCE || msg.type == END_BATTLE_ANNOUNCE) {
             pthread_mutex_lock(&mutex_list);
@@ -105,18 +94,19 @@ void *push_service(void *arg)
         // 等待对战请求响应，忽视其他报文，TODO 拒绝新的对战请求
         case WAIT_REMOTE_CONFIRM:
             if (msg.type == NO_BATTLE || msg.type == BATTLE_ERROR) {
-                snprintf(info_bar.buf, info_bar.len, "invitation for %s failed", msg.battle.dstID);
+                update_info(0, "invitation for %s failed", msg.battle.dstID);
                 client_state = IDLE;
             }
             else if (msg.type == YES_BATTLE) {
                 // 状态转移
                 me.hp = 5;
                 rival.hp = 5;
+                increase_info_level();
                 client_state = BATTLING;
                 // 缓存对手信息
                 strncpy(rival.id, msg.battle.dstID, sizeof(rival.id));
                 // Update info bar
-                snprintf(info_bar.buf, info_bar.len, "battling with %s, type x, y, z", rival.id);
+                update_info(1, "battling with %s, type x, y, z", rival.id);
             }
             else if (msg.type == ASK_BATTLE) {
                 send_no_battle(&msg);
@@ -138,25 +128,22 @@ void *push_service(void *arg)
                 rival.hp = msg.battle.dstHP;
                 // 打印战果
                 if (msg.battle.result == TIE) {
-                    snprintf(info_bar.buf, info_bar.len,
-                             "%s using %d ties %s using %d\n",
+                    update_info(1, "%s using %d ties %s using %d\n",
                              msg.battle.srcID, msg.battle.srcattack,
                              msg.battle.dstID, msg.battle.dstattack);
                 }
                 else if (msg.battle.result == WIN) {
-                    snprintf(info_bar.buf, info_bar.len,
-                             "%s using %d wins %s using %d\n",
+                    update_info(1, "%s using %d wins %s using %d\n",
                              msg.battle.srcID, msg.battle.srcattack,
                              msg.battle.dstID, msg.battle.dstattack);
                 }
                 else if (msg.battle.result == FAIL) {
-                    snprintf(info_bar.buf, info_bar.len,
-                             "%s using %d wins %s using %d\n",
+                    update_info(1, "%s using %d wins %s using %d\n",
                              msg.battle.dstID, msg.battle.dstattack,
                              msg.battle.srcID, msg.battle.srcattack);
                 }
                 else {
-                    snprintf(info_bar.buf, info_bar.len, "WTF");
+                    update_info(1, "WTF");
                 }
                 client_state = BATTLING;
             }
@@ -164,11 +151,12 @@ void *push_service(void *arg)
             if (msg.type == END_BATTLE) {
                 sleep(1);
                 if (msg.battle.result == WIN) {
-                    snprintf(info_bar.buf, info_bar.len, "you have won %s", msg.battle.dstID);
+                    update_info(1, "you have won %s", msg.battle.dstID);
                 }
                 else {
-                    snprintf(info_bar.buf, info_bar.len, "you have been beaten by %s", msg.battle.dstID);
+                    update_info(1, "you have been beaten by %s", msg.battle.dstID);
                 }
+                decrease_info_level();
                 client_state = IDLE;
             }
             break;
@@ -205,7 +193,7 @@ void *user_input(void *arg)
             else if (cmd == '\n' && selected >= 0 && selected < nr_players) {
                 send_invitation_msg();
                 client_state = WAIT_REMOTE_CONFIRM;
-                snprintf(info_bar.buf, info_bar.len, "waiting %s's response", player_list[selected].userID);
+                update_info(1, "waiting %s's response", player_list[selected].userID);
             }
             pthread_mutex_unlock(&mutex_list);
             break;
@@ -226,7 +214,7 @@ void *user_input(void *arg)
                 }
                 pthread_mutex_unlock(&mutex_list);
                 // 更新 info bar
-                snprintf(info_bar.buf, info_bar.len, "battling with %s, type x, y, z", rival.id);
+                update_info(1, "battling with %s, type x, y, z", rival.id);
                 // 状态转移
                 client_state = BATTLING;
             }
@@ -253,7 +241,7 @@ void *user_input(void *arg)
             default: attack_type = 0;
             }
             if (attack_type != 0) {
-                snprintf(info_bar.buf, info_bar.len, "attack on %s with %d, waiting response...", rival.id, attack_type);
+                update_info(1, "attack on %s with %d, waiting response...", rival.id, attack_type);
                 send_attack_message(attack_type);
                 client_state = WAIT_RESULT;
             }
@@ -283,9 +271,9 @@ void draw_battle_screen(WINDOW *wind)
 
 
 /**
- * @brief 向标准屏幕输出帮助信息
+ * @brief 输出帮助信息
  * @param file 帮助文件的文件名
- * @param wind 窗口 // TODO 权宜之计，直接写标准屏会刷掉边框
+ * @param wind 窗口
  */
 static void draw_help(const char *filename, WINDOW *window)
 {
@@ -352,8 +340,7 @@ void scene_hall(void)
         }
     }
 
-    info_bar.buf = calloc((size_t)(W - 2), sizeof(char));
-    info_bar.len = (size_t)(W - 3);
+    init_info(W - 2);
 
     refresh();
 
@@ -424,7 +411,7 @@ void scene_hall(void)
         wrefresh(win_list);
 
         werase(win_info);
-        wprintw(win_info, "%s", info_bar.buf);
+        wprintw(win_info, "%s", get_info());
         wrefresh(win_info);
     }
 
@@ -432,7 +419,7 @@ void scene_hall(void)
 
     close(client_socket);
 
-    snprintf(info_bar.buf, info_bar.len, "quiting...");
+    update_info(3, "quiting...");
 
     for (int i = 0; i < sizeof(threads) / sizeof(threads[i]); i++) {
         pthread_join(threads[i].tid, NULL);

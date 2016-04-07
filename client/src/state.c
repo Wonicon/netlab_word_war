@@ -6,6 +6,9 @@
  */
 
 #include <pthread.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "state.h"
 
 /**
@@ -48,3 +51,37 @@ int nr_players = 0;
  * @brief 帮助窗口显示使能
  */
 int help_window_en = 0;
+
+/**
+ * @brief 通知栏
+ */
+static struct {
+    char *buf;
+    size_t len;
+    int level;
+} info = { NULL, 0, 0 };
+
+void increase_info_level(void) { info.level++; }
+
+void decrease_info_level(void) { info.level--; }
+
+void init_info(int w)
+{
+    info.buf = calloc((size_t)w, sizeof(char));
+    info.len = (w - 1) * sizeof(char);
+}
+
+void update_info(int level, const char *fmt, ...)
+{
+    if (level >= info.level) {
+        va_list args;
+        va_start(args, fmt);
+        vsnprintf(info.buf, info.len, fmt, args);
+        va_end(args);
+    }
+}
+
+const char *get_info(void)
+{
+    return info.buf;
+}
